@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Panel Feria de la Salud</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="/estilos.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
+<script src="/vendor/xlsx.full.min.js"></script>
+</head>
+<body>
+<main class="wrap ancho">
+
+  <section id="v-login" class="hidden">
+    <div class="card stack" style="max-width:420px;margin:8vh auto 0">
+      <div class="row"><span class="logo">📊</span><div><h1>Panel de administración</h1><div class="muted small">Feria de la Salud</div></div></div>
+      <form id="f-login" class="stack">
+        <div><label for="clave">Clave de administrador</label><input id="clave" type="password" autocomplete="current-password" required></div>
+        <div id="login-err" class="err hidden"></div>
+        <button class="full">Entrar</button>
+      </form>
+    </div>
+  </section>
+
+  <section id="v-panel" class="hidden">
+    <div class="row" style="margin-bottom:16px">
+      <div><h1 id="p-titulo">Panel de administración</h1><div class="muted small" id="p-plazo"></div></div>
+      <span class="spacer"></span>
+      <button class="sec" id="b-recargar">Actualizar</button>
+      <button class="sec" id="b-salir">Salir</button>
+    </div>
+    <nav class="tabs" id="tabs">
+      <button data-t="avance" class="act">Avance</button>
+      <button data-t="colab">Colaboradores</button>
+      <button data-t="preg">Preguntas</button>
+      <button data-t="conf">Configuración</button>
+    </nav>
+
+    <!-- AVANCE -->
+    <div data-p="avance" class="stack">
+      <div class="kpis" id="kpis"></div>
+      <div class="card">
+        <h2>Cobertura por tema</h2>
+        <p class="muted small">Porcentaje de colaboradores que ya respondieron las 3 preguntas de cada tema, y porcentaje de aciertos en ese tema.</p>
+        <div class="cobertura" id="cobertura"></div>
+      </div>
+      <div class="card stack">
+        <div class="row">
+          <h2 style="margin:0">Detalle por colaborador</h2>
+          <span class="spacer"></span>
+          <button id="b-export">Descargar Excel</button>
+        </div>
+        <div class="row">
+          <input id="buscar" placeholder="Buscar por nombre, documento o área" style="flex:2;min-width:200px">
+          <select id="f-estado" style="flex:1;min-width:160px">
+            <option value="">Todos los estados</option>
+            <option>No ha iniciado</option><option>En progreso</option><option>Terminó</option>
+          </select>
+          <select id="f-area" style="flex:1;min-width:160px"><option value="">Todas las áreas</option></select>
+        </div>
+        <div class="leyenda">
+          <span>Cada casilla es un tema: respondidas/3.</span>
+          <span><span class="cel c0">0</span> sin responder</span>
+          <span><span class="cel c1">1-2</span> incompleto</span>
+          <span><span class="cel c2">3</span> completo con errores</span>
+          <span><span class="cel c3">3✓</span> completo, todo correcto</span>
+        </div>
+        <div class="muted small" id="conteo"></div>
+        <div class="tabla-wrap"><table id="tabla"></table></div>
+      </div>
+    </div>
+
+    <!-- COLABORADORES -->
+    <div data-p="colab" class="hidden stack">
+      <div class="card stack">
+        <h2>Cargar colaboradores desde Excel</h2>
+        <p class="muted">El archivo debe tener las columnas <b>documento</b>, <b>nombre</b> y <b>area</b> (la columna <b>pin</b> es opcional). A cada persona nueva sin PIN se le genera uno de 4 dígitos. Si el documento ya existe, se actualizan su nombre y área sin tocar sus respuestas.</p>
+        <div class="row">
+          <button class="sec" id="b-plantilla-c">Descargar plantilla</button>
+          <input type="file" id="file-c" accept=".xlsx,.xls,.csv" style="flex:1;min-width:220px">
+        </div>
+        <div id="c-prev" class="muted small"></div>
+        <div id="c-err" class="err hidden"></div>
+        <button id="b-cargar-c" disabled>Cargar colaboradores</button>
+        <div id="c-ok" class="okbox hidden"></div>
+      </div>
+      <div class="card stack">
+        <h2>Reiniciar el PIN de una persona</h2>
+        <p class="muted small">Para quien olvidó su PIN o quedó bloqueado. Sus respuestas no se borran.</p>
+        <div class="row">
+          <input id="reset-doc" placeholder="Número de documento" style="flex:1;min-width:200px">
+          <button id="b-reset">Generar PIN nuevo</button>
+        </div>
+        <div id="reset-out"></div>
+      </div>
+    </div>
+
+    <!-- PREGUNTAS -->
+    <div data-p="preg" class="hidden stack">
+      <div class="card stack">
+        <h2>Preguntas del cuestionario</h2>
+        <p class="muted">Para cambiarlas: descarga las actuales en Excel, edítalas y vuelve a subir el archivo. Columnas: <b>tema</b>, <b>pregunta</b>, <b>opcion_a</b> a <b>opcion_d</b> y <b>correcta</b> (la letra: A, B, C o D). Los temas aparecen en el orden del archivo.</p>
+        <div class="row">
+          <button class="sec" id="b-desc-p">Descargar preguntas actuales</button>
+          <input type="file" id="file-p" accept=".xlsx,.xls,.csv" style="flex:1;min-width:220px">
+        </div>
+        <div id="p-prev" class="muted small"></div>
+        <div id="p-err" class="err hidden"></div>
+        <button id="b-cargar-p" disabled>Reemplazar preguntas</button>
+        <div id="p-ok" class="okbox hidden"></div>
+      </div>
+      <div class="card"><h2>Vista previa</h2><div id="lista-p" class="small"></div></div>
+    </div>
+
+    <!-- CONFIGURACIÓN -->
+    <div data-p="conf" class="hidden stack">
+      <div class="card stack">
+        <h2>Plazo para responder</h2>
+        <p class="muted small">Fuera de estas fechas los colaboradores pueden entrar a ver, pero no responder. Hora de este computador.</p>
+        <div class="grid2">
+          <div><label for="c-ini">Abre</label><input id="c-ini" type="datetime-local"></div>
+          <div><label for="c-fin">Cierra</label><input id="c-fin" type="datetime-local"></div>
+        </div>
+        <div><label for="c-tit">Título</label><input id="c-tit"></div>
+        <div id="cf-err" class="err hidden"></div>
+        <div class="row"><button id="b-plazo">Guardar</button><span id="cf-ok" class="muted small"></span></div>
+      </div>
+      <div class="card stack">
+        <h2>Cambiar clave de administrador</h2>
+        <div class="grid2">
+          <div><label for="k-act">Clave actual</label><input id="k-act" type="password" autocomplete="current-password"></div>
+          <div><label for="k-new">Clave nueva (mínimo 8 caracteres)</label><input id="k-new" type="password" autocomplete="new-password"></div>
+        </div>
+        <div id="k-err" class="err hidden"></div>
+        <div class="row"><button id="b-clave">Cambiar clave</button><span id="k-ok" class="muted small"></span></div>
+      </div>
+    </div>
+  </section>
+
+  <div id="cargando" class="muted" style="text-align:center;margin-top:20vh">Cargando…</div>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const ls = {
+  get(k) { try { return sessionStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { sessionStorage.setItem(k, v); } catch {} },
+  del(k) { try { sessionStorage.removeItem(k); } catch {} },
+};
+let token = ls.get('fs_admin');
+let rep = null;
+let filasC = null, filasP = null;
+
+function vista(id) { for (const v of ['v-login', 'v-panel', 'cargando']) $(v).classList.toggle('hidden', v !== id); }
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmt = (iso) => iso ? new Date(iso).toLocaleString('es-CO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+const aLocal = (iso) => { const d = new Date(iso); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
+function mostrar(el, txt) { $(el).textContent = txt; $(el).classList.toggle('hidden', !txt); }
+
+async function api(ruta, cuerpo) {
+  const r = await fetch(ruta, {
+    method: cuerpo ? 'POST' : 'GET',
+    headers: { 'content-type': 'application/json', ...(token ? { authorization: 'Bearer ' + token } : {}) },
+    body: cuerpo ? JSON.stringify(cuerpo) : undefined,
+  });
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 401 && ruta !== '/api/admin/ingresar') { token = null; ls.del('fs_admin'); vista('v-login'); }
+  if (!r.ok) { const e = new Error(j.mensaje || 'Error de conexión'); e.codigo = j.error; throw e; }
+  return j;
+}
+
+// ------------------------------------------------ resumen por colaborador
+function resumir(c) {
+  let r = 0, n = 0, ok = 0, completos = 0;
+  const faltan = [], errores = [];
+  c.por_tema.forEach((t, i) => {
+    r += t.r; n += t.n; ok += t.c;
+    if (t.r >= t.n) { completos++; if (t.c < t.n) errores.push(rep.temas[i].nombre); }
+    else faltan.push(rep.temas[i].nombre);
+  });
+  const estado = r === 0 ? 'No ha iniciado' : r < n ? 'En progreso' : 'Terminó';
+  return { r, n, ok, completos, faltan, errores, estado };
+}
+
+async function cargar() {
+  vista('cargando');
+  try {
+    const crudo = await api('/api/admin/reporte');
+    rep = { config: crudo.config, temas: crudo.temas };
+    rep.colaboradores = crudo.colaboradores.map((x) => {
+      const m = new Map((x.g || '').split(',').filter(Boolean).map((t) => { const [id, r, c] = t.split(':').map(Number); return [id, { r, c }]; }));
+      return { documento: x.d, nombre: x.n, area: x.a || '', ultimo_ingreso: x.i, ultima_respuesta: x.u,
+        por_tema: rep.temas.map((t) => ({ r: m.get(t.id)?.r || 0, c: m.get(t.id)?.c || 0, n: t.n })) };
+    });
+    rep.colaboradores.forEach((c) => (c.s = resumir(c)));
+    pintar();
+    vista('v-panel');
+  } catch (e) { if (token) $('cargando').textContent = e.message; }
+}
+
+function pintar() {
+  const cfg = rep.config;
+  $('p-titulo').textContent = cfg.titulo;
+  const t = Date.now();
+  const est = t < new Date(cfg.inicio) ? 'Aún no abre' : t > new Date(cfg.cierre) ? 'Cerrado' : 'Abierto';
+  $('p-plazo').textContent = `${est} · de ${fmt(cfg.inicio)} a ${fmt(cfg.cierre)}`;
+  $('c-ini').value = aLocal(cfg.inicio); $('c-fin').value = aLocal(cfg.cierre); $('c-tit').value = cfg.titulo;
+
+  const cs = rep.colaboradores;
+  const tot = cs.length;
+  const cuenta = (e) => cs.filter((c) => c.s.estado === e).length;
+  const respTot = cs.reduce((a, c) => a + c.s.r, 0), okTot = cs.reduce((a, c) => a + c.s.ok, 0);
+  $('kpis').innerHTML = [
+    ['Colaboradores', tot],
+    ['Terminaron', cuenta('Terminó'), tot],
+    ['En progreso', cuenta('En progreso'), tot],
+    ['No han iniciado', cuenta('No ha iniciado'), tot],
+    ['Aciertos', respTot ? Math.round(100 * okTot / respTot) + '%' : '–'],
+  ].map(([l, v, d]) => `<div class="kpi"><div class="v">${v}</div><div class="l">${l}${d ? ` · ${Math.round(100 * v / (d || 1))}%` : ''}</div></div>`).join('');
+
+  $('cobertura').innerHTML = rep.temas.map((tm, i) => {
+    const comp = cs.filter((c) => c.por_tema[i].r >= c.por_tema[i].n).length;
+    const resp = cs.reduce((a, c) => a + c.por_tema[i].r, 0), bien = cs.reduce((a, c) => a + c.por_tema[i].c, 0);
+    const pct = tot ? Math.round(100 * comp / tot) : 0;
+    return `<div class="fila"><span>${esc(tm.nombre)}</span><div class="bar"><i style="width:${pct}%"></i></div><b class="num">${pct}%</b></div>
+      <div class="muted small" style="margin:-4px 0 4px">${comp} de ${tot} lo completaron · aciertos ${resp ? Math.round(100 * bien / resp) : 0}%</div>`;
+  }).join('');
+
+  const areas = [...new Set(cs.map((c) => c.area).filter(Boolean))].sort();
+  const fa = $('f-area'), prev = fa.value;
+  fa.innerHTML = '<option value="">Todas las áreas</option>' + areas.map((a) => `<option>${esc(a)}</option>`).join('');
+  fa.value = prev;
+  pintarTabla();
+  pintarPreguntas();
+}
+
+function filtrados() {
+  const q = $('buscar').value.trim().toLowerCase(), e = $('f-estado').value, a = $('f-area').value;
+  return rep.colaboradores.filter((c) =>
+    (!e || c.s.estado === e) && (!a || c.area === a) &&
+    (!q || c.nombre.toLowerCase().includes(q) || c.documento.includes(q) || (c.area || '').toLowerCase().includes(q)));
+}
+
+function pintarTabla() {
+  const lista = filtrados();
+  const max = 500;
+  $('conteo').textContent = `${lista.length} colaboradores` + (lista.length > max ? ` (se muestran los primeros ${max}; usa el buscador o descarga el Excel)` : '');
+  const cab = `<thead><tr><th>Documento</th><th>Nombre</th><th>Área</th><th>Estado</th><th class="num">Resp.</th><th class="num">Aciertos</th>
+    ${rep.temas.map((t, i) => `<th title="${esc(t.nombre)}">T${i + 1}</th>`).join('')}<th>Temas que le faltan</th><th>Última respuesta</th></tr></thead>`;
+  const filas = lista.slice(0, max).map((c) => {
+    const pill = c.s.estado === 'Terminó' ? 'si' : c.s.estado === 'En progreso' ? 'pr' : 'no';
+    const celdas = c.por_tema.map((t, i) => {
+      const k = t.r === 0 ? 0 : t.r < t.n ? 1 : t.c < t.n ? 2 : 3;
+      return `<td><span class="cel c${k}" title="${esc(rep.temas[i].nombre)}: ${t.r}/${t.n} respondidas, ${t.c} correctas">${t.r}${k === 3 ? '✓' : ''}</span></td>`;
+    }).join('');
+    return `<tr><td>${esc(c.documento)}</td><td>${esc(c.nombre)}</td><td>${esc(c.area)}</td><td><span class="pill ${pill}">${c.s.estado}</span></td>
+      <td class="num">${c.s.r}/${c.s.n}</td><td class="num">${c.s.r ? Math.round(100 * c.s.ok / c.s.r) + '%' : '–'}</td>${celdas}
+      <td style="white-space:normal;min-width:220px">${esc(c.s.faltan.join(', '))}</td><td>${fmt(c.ultima_respuesta)}</td></tr>`;
+  }).join('');
+  $('tabla').innerHTML = cab + '<tbody>' + filas + '</tbody>';
+}
+
+function exportar() {
+  const temas = rep.temas.map((t) => t.nombre);
+  const resumen = rep.colaboradores.map((c) => {
+    const o = {
+      Documento: c.documento, Nombre: c.nombre, 'Área': c.area, Estado: c.s.estado,
+      'Preguntas respondidas': c.s.r, 'Preguntas totales': c.s.n, 'Respuestas correctas': c.s.ok,
+      '% aciertos': c.s.r ? Math.round(100 * c.s.ok / c.s.r) : '',
+      'Temas completos': c.s.completos, 'Temas que le faltan': c.s.faltan.join(', '),
+      'Temas con errores': c.s.errores.join(', '),
+    };
+    c.por_tema.forEach((t, i) => (o[temas[i]] = t.r === 0 ? 'Sin responder' : t.r < t.n ? `Incompleto (${t.r}/${t.n})` : t.c < t.n ? `Completo con errores (${t.c}/${t.n})` : 'Completo, todo correcto'));
+    o['Último ingreso'] = c.ultimo_ingreso ? new Date(c.ultimo_ingreso) : '';
+    o['Última respuesta'] = c.ultima_respuesta ? new Date(c.ultima_respuesta) : '';
+    return o;
+  });
+  const detalle = [];
+  rep.colaboradores.forEach((c) => c.por_tema.forEach((t, i) => detalle.push({
+    Documento: c.documento, Nombre: c.nombre, 'Área': c.area, Tema: temas[i],
+    Respondidas: t.r, Preguntas: t.n, Correctas: t.c,
+    Estado: t.r === 0 ? 'Sin responder' : t.r < t.n ? 'Incompleto' : t.c < t.n ? 'Completo con errores' : 'Completo, todo correcto',
+  })));
+  const porTema = rep.temas.map((tm, i) => {
+    const comp = rep.colaboradores.filter((c) => c.por_tema[i].r >= c.por_tema[i].n).length;
+    const resp = rep.colaboradores.reduce((a, c) => a + c.por_tema[i].r, 0), bien = rep.colaboradores.reduce((a, c) => a + c.por_tema[i].c, 0);
+    return { Tema: tm.nombre, 'Colaboradores que lo completaron': comp, 'Total colaboradores': rep.colaboradores.length,
+      '% cobertura': rep.colaboradores.length ? Math.round(100 * comp / rep.colaboradores.length) : 0, '% aciertos': resp ? Math.round(100 * bien / resp) : 0 };
+  });
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(resumen), 'Por colaborador');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(detalle), 'Detalle por tema');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(porTema), 'Cobertura por tema');
+  XLSX.writeFile(wb, `avance-feria-salud-${new Date().toISOString().slice(0, 10)}.xlsx`);
+}
+
+// ------------------------------------------------ carga de archivos
+function leerHoja(file) {
+  return new Promise((res, rej) => {
+    const fr = new FileReader();
+    fr.onload = () => {
+      try {
+        const wb = XLSX.read(fr.result, { type: 'array' });
+        const filas = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '', raw: false });
+        // normaliza encabezados: minúsculas, sin tildes ni espacios
+        res(filas.map((f) => Object.fromEntries(Object.entries(f).map(([k, v]) =>
+          [k.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, '_').trim(), String(v).trim()]))));
+      } catch (e) { rej(new Error('No se pudo leer el archivo')); }
+    };
+    fr.onerror = () => rej(new Error('No se pudo leer el archivo'));
+    fr.readAsArrayBuffer(file);
+  });
+}
+
+$('file-c').onchange = async (ev) => {
+  filasC = null; $('b-cargar-c').disabled = true; mostrar('c-err', ''); $('c-ok').classList.add('hidden'); $('c-prev').textContent = '';
+  const f = ev.target.files[0]; if (!f) return;
+  try {
+    const filas = await leerHoja(f);
+    const doc = (x) => x.documento || x.cedula || x.identificacion || x.codigo || '';
+    filasC = filas.map((x) => ({ documento: doc(x), nombre: x.nombre || x.nombre_completo || '', area: x.area || x.dependencia || '', pin: x.pin || '' }))
+      .filter((x) => x.documento && x.nombre);
+    if (!filasC.length) throw new Error('No encontré filas con las columnas documento y nombre');
+    $('c-prev').textContent = `${filasC.length} colaboradores listos para cargar (de ${filas.length} filas en el archivo).`;
+    $('b-cargar-c').disabled = false;
+  } catch (e) { mostrar('c-err', e.message); }
+};
+$('b-cargar-c').onclick = async () => {
+  const b = $('b-cargar-c'); b.disabled = true; b.textContent = 'Cargando…'; mostrar('c-err', '');
+  try {
+    const r = { nuevos: 0, actualizados: 0, omitidos: 0, pines: [] };
+    for (let i = 0; i < filasC.length; i += 200) {
+      b.textContent = `Cargando… ${Math.min(i + 200, filasC.length)} de ${filasC.length}`;
+      const x = await api('/api/admin/colaboradores', { filas: filasC.slice(i, i + 200) });
+      r.nuevos += x.nuevos; r.actualizados += x.actualizados; r.omitidos += x.omitidos; r.pines.push(...x.pines);
+    }
+    $('c-ok').textContent = `Listo: ${r.nuevos} nuevos, ${r.actualizados} actualizados${r.omitidos ? `, ${r.omitidos} omitidos (vacíos o repetidos)` : ''}. ` +
+      (r.pines.length ? `Se descargó un Excel con los ${r.pines.length} PIN asignados: guárdalo, es la única vez que se pueden ver.` : '');
+    $('c-ok').classList.remove('hidden');
+    if (r.pines.length) {
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(r.pines.map((p) => ({ Documento: p.documento, Nombre: p.nombre, 'Área': p.area, PIN: p.pin }))), 'PIN');
+      XLSX.writeFile(wb, `pines-colaboradores-${new Date().toISOString().slice(0, 16).replace(':', '')}.xlsx`);
+    }
+    $('file-c').value = ''; filasC = null;
+    cargar();
+  } catch (e) { mostrar('c-err', e.message); b.disabled = false; }
+  b.textContent = 'Cargar colaboradores';
+};
+$('b-plantilla-c').onclick = () => {
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{ documento: '1020304050', nombre: 'Nombre Apellido', area: 'Producción', pin: '' }]), 'Colaboradores');
+  XLSX.writeFile(wb, 'plantilla-colaboradores.xlsx');
+};
+$('b-reset').onclick = async () => {
+  const d = $('reset-doc').value.trim(); if (!d) return;
+  $('reset-out').innerHTML = '';
+  try {
+    const r = await api('/api/admin/reiniciar-pin', { documento: d });
+    $('reset-out').innerHTML = `<div class="okbox">Nuevo PIN para ${esc(r.documento)}: <span style="font-size:1.4rem;letter-spacing:.15em">${esc(r.pin)}</span></div>`;
+  } catch (e) { $('reset-out').innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+};
+
+// ------------------------------------------------ preguntas
+let preguntasAct = [];
+async function pintarPreguntas() {
+  try { preguntasAct = (await api('/api/admin/preguntas')).preguntas; } catch { return; }
+  let tema = '';
+  $('lista-p').innerHTML = preguntasAct.map((p) => {
+    const h = p.tema !== tema ? `<h2 style="margin:18px 0 8px">${esc(p.tema)}</h2>` : '';
+    tema = p.tema;
+    return h + `<p><b>${esc(p.enunciado)}</b><br>${p.opciones.map((o, i) => `<span style="${i === p.correcta ? 'color:var(--ok);font-weight:700' : ''}">${'ABCDEFGH'[i]}) ${esc(o)}${i === p.correcta ? ' ✓' : ''}</span>`).join('<br>')}</p>`;
+  }).join('');
+}
+$('b-desc-p').onclick = () => {
+  const wb = XLSX.utils.book_new();
+  const filas = preguntasAct.map((p) => ({ tema: p.tema, pregunta: p.enunciado, opcion_a: p.opciones[0] || '', opcion_b: p.opciones[1] || '', opcion_c: p.opciones[2] || '', opcion_d: p.opciones[3] || '', correcta: 'ABCDEFGH'[p.correcta] }));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(filas), 'Preguntas');
+  XLSX.writeFile(wb, 'preguntas-feria-salud.xlsx');
+};
+$('file-p').onchange = async (ev) => {
+  filasP = null; $('b-cargar-p').disabled = true; mostrar('p-err', ''); $('p-ok').classList.add('hidden'); $('p-prev').textContent = '';
+  const f = ev.target.files[0]; if (!f) return;
+  try {
+    const filas = await leerHoja(f);
+    filasP = filas.filter((x) => x.tema || x.pregunta).map((x) => {
+      const opciones = ['opcion_a', 'opcion_b', 'opcion_c', 'opcion_d', 'opcion_e'].map((k) => x[k]).filter(Boolean);
+      const letra = (x.correcta || '').toUpperCase().trim();
+      return { tema: x.tema, enunciado: x.pregunta, opciones, correcta: 'ABCDE'.indexOf(letra) };
+    });
+    if (!filasP.length) throw new Error('No encontré preguntas. Revisa los encabezados: tema, pregunta, opcion_a…opcion_d, correcta');
+    const temas = new Set(filasP.map((p) => p.tema));
+    $('p-prev').textContent = `${filasP.length} preguntas en ${temas.size} temas listas para cargar.`;
+    $('b-cargar-p').disabled = false;
+  } catch (e) { mostrar('p-err', e.message); }
+};
+$('b-cargar-p').onclick = async () => {
+  const b = $('b-cargar-p'); b.disabled = true; mostrar('p-err', '');
+  try {
+    let r;
+    try { r = await api('/api/admin/preguntas', { preguntas: filasP }); }
+    catch (e) {
+      if (e.codigo !== 'HAY_RESPUESTAS') throw e;
+      if (!confirm(e.message + ' ¿Continuar de todas formas?')) { b.disabled = false; return; }
+      r = await api('/api/admin/preguntas', { preguntas: filasP, forzar: true });
+    }
+    $('p-ok').textContent = `Listo: ${r.preguntas} preguntas en ${r.temas} temas.`; $('p-ok').classList.remove('hidden');
+    $('file-p').value = ''; filasP = null;
+    cargar();
+  } catch (e) { mostrar('p-err', e.message); b.disabled = false; }
+};
+
+// ------------------------------------------------ configuración
+$('b-plazo').onclick = async () => {
+  mostrar('cf-err', ''); $('cf-ok').textContent = '';
+  try {
+    await api('/api/admin/plazo', { inicio: new Date($('c-ini').value).toISOString(), cierre: new Date($('c-fin').value).toISOString(), titulo: $('c-tit').value });
+    $('cf-ok').textContent = 'Guardado ✓'; cargar();
+  } catch (e) { mostrar('cf-err', e.message); }
+};
+$('b-clave').onclick = async () => {
+  mostrar('k-err', ''); $('k-ok').textContent = '';
+  try {
+    await api('/api/admin/clave', { actual: $('k-act').value, nueva: $('k-new').value });
+    $('k-ok').textContent = 'Clave cambiada. Vuelve a entrar con la nueva.';
+    setTimeout(() => { token = null; ls.del('fs_admin'); vista('v-login'); }, 1500);
+  } catch (e) { mostrar('k-err', e.message); }
+};
+
+// ------------------------------------------------ navegación
+$('tabs').onclick = (ev) => {
+  const t = ev.target.dataset.t; if (!t) return;
+  for (const b of $('tabs').children) b.classList.toggle('act', b.dataset.t === t);
+  for (const p of document.querySelectorAll('[data-p]')) p.classList.toggle('hidden', p.dataset.p !== t);
+};
+$('buscar').oninput = pintarTabla;
+$('f-estado').onchange = pintarTabla;
+$('f-area').onchange = pintarTabla;
+$('b-export').onclick = exportar;
+$('b-recargar').onclick = cargar;
+$('b-salir').onclick = () => { token = null; ls.del('fs_admin'); vista('v-login'); };
+$('f-login').onsubmit = async (ev) => {
+  ev.preventDefault(); mostrar('login-err', '');
+  try {
+    token = (await api('/api/admin/ingresar', { clave: $('clave').value })).token;
+    ls.set('fs_admin', token); $('clave').value = '';
+    cargar();
+  } catch (e) { mostrar('login-err', e.message); }
+};
+
+token ? cargar() : vista('v-login');
+</script>
+</body>
+</html>

@@ -203,6 +203,29 @@ async function adminCargarColaboradores(req, env) {
   return json({ nuevos, actualizados: validas - nuevos, omitidos });
 }
 
+// Crea o edita un colaborador. Si viene documento_anterior, se edita ese registro (y se puede cambiar el documento).
+async function adminGuardarColaborador(req, env) {
+  await sesion(req, env, true);
+  const { documento_anterior, documento, nombre, area } = await leerJson(req);
+  const doc = limpiarDoc(documento);
+  const nom = limpiar(nombre);
+  const ar = limpiar(area) || null;
+  if (!doc) throw new HttpError(400, 'DATOS', 'Escribe el número de documento.');
+  if (!/^[0-9A-Za-z]{3,20}$/.test(doc)) throw new HttpError(400, 'DATOS', 'El documento solo puede tener números o letras, entre 3 y 20 caracteres.');
+  if (!nom) throw new HttpError(400, 'DATOS', 'Escribe el nombre completo.');
+  const anterior = limpiarDoc(documento_anterior);
+  const otro = await env.DB.prepare('SELECT documento FROM colaboradores WHERE documento = ?').bind(doc).first();
+  if (anterior) {
+    if (otro && doc !== anterior) throw new HttpError(409, 'DUPLICADO', `Ya existe otro colaborador con el documento ${doc}.`);
+    const r = await env.DB.prepare('UPDATE colaboradores SET documento = ?, nombre = ?, area = ? WHERE documento = ?').bind(doc, nom, ar, anterior).run();
+    if (!r.meta.changes) throw new HttpError(404, 'NO_EXISTE', 'Ese colaborador ya no existe. Actualiza la página.');
+    return json({ ok: true, accion: 'editado' });
+  }
+  if (otro) throw new HttpError(409, 'DUPLICADO', `Ya existe un colaborador con el documento ${doc}.`);
+  await env.DB.prepare("INSERT INTO colaboradores (documento, nombre, area, pin_salt, pin_hash) VALUES (?, ?, ?, '', '')").bind(doc, nom, ar).run();
+  return json({ ok: true, accion: 'creado' });
+}
+
 async function adminEliminarColaborador(req, env) {
   await sesion(req, env, true);
   const { documento } = await leerJson(req);
@@ -285,6 +308,7 @@ const rutas = {
   'POST /api/admin/plazo': adminPlazo,
   'POST /api/admin/colaboradores': adminCargarColaboradores,
   'POST /api/admin/eliminar-colaborador': adminEliminarColaborador,
+  'POST /api/admin/colaborador': adminGuardarColaborador,
   'POST /api/admin/clave': adminCambiarClave,
   'GET /api/admin/preguntas': adminPreguntas,
   'POST /api/admin/preguntas': adminCargarPreguntas,

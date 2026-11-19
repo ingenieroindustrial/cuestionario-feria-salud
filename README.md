@@ -13,7 +13,7 @@ Todo corre en Cloudflare:
 
 | Ruta | Para quién |
 |---|---|
-| `/` | Colaboradores: ingresan con su número de documento y un PIN de 4 dígitos. |
+| `/` | Colaboradores: ingresan con su número de documento. |
 | `/admin.html` | Administrador: avance, Excel, carga de colaboradores y preguntas, plazo. |
 
 ## Publicar (una sola vez)
@@ -27,8 +27,7 @@ Después de esto, cada cambio que se suba a la rama `main` se publica solo.
 
 ## Uso del panel de administrador
 
-1. **Colaboradores → Cargar desde Excel** con columnas `documento`, `nombre`, `area` (y `pin` opcional).
-   Al cargar se descarga un Excel con el PIN de cada persona nueva: es la única vez que se puede ver.
+1. **Colaboradores**: agrega, edita o elimina personas una por una, o carga la lista completa desde Excel (columnas `documento`, `nombre`, `area`). Cada persona entra solo con su número de documento.
 2. **Preguntas**: descarga las actuales, edítalas en Excel (`tema`, `pregunta`, `opcion_a`…`opcion_d`, `correcta` = letra) y súbelas.
 3. **Configuración**: fecha y hora de apertura y cierre, título y clave de administrador.
 4. **Avance**: indicadores, cobertura por tema, tabla por colaborador y botón **Descargar Excel**
@@ -45,8 +44,7 @@ El esquema está en `sql/01_esquema.sql` y las preguntas de ejemplo en `sql/02_p
 
 ## Seguridad
 
-- Los PIN y la clave de administrador se guardan cifrados (hash con sal), nunca en texto plano.
-- Tras 5 PIN errados el documento se bloquea 15 minutos; el administrador puede reiniciar el PIN.
+- La clave de administrador se guarda cifrada (hash con sal), nunca en texto plano.
 - Las respuestas correctas nunca se envían al navegador del colaborador.
 
 ## Desarrollo local

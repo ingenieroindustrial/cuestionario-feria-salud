@@ -3,163 +3,222 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Panel Feria de la Salud</title>
+<meta name="theme-color" content="#0d2b5e">
 <meta name="robots" content="noindex">
+<title>Panel · Feria de la Salud</title>
+<link rel="preload" href="/fuentes/lexend-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fuentes/lexend-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/estilos.css">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
+<link rel="icon" type="image/png" href="/marca/logo.png">
 <script src="/vendor/xlsx.full.min.js"></script>
 </head>
-<body>
-<main class="wrap ancho">
+<body class="admin">
 
-  <section id="v-login" class="hidden">
-    <div class="card stack" style="max-width:420px;margin:8vh auto 0">
-      <img src="/marca/logo.png" alt="Medical" class="logo-img" onerror="this.remove()">
-      <img src="/marca/mascota-brazos-cruzados.png" alt="" class="mascota" style="max-height:130px" onerror="this.remove()">
-      <div class="row"><div><h1>Panel de administración</h1><div class="muted small">Feria de la Salud</div></div></div>
-      <form id="f-login" class="stack">
-        <div><label for="clave">Clave de administrador</label><input id="clave" type="password" autocomplete="current-password" required></div>
-        <div id="login-err" class="err hidden"></div>
-        <button class="full">Entrar</button>
+<!-- ================= Ingreso ================= -->
+<div id="v-login" class="ingreso hidden">
+  <header class="banda">
+    <div class="contenido">
+      <span class="logo-chip"><img src="/marca/logo.png" alt="Medical"></span>
+      <img class="zero" src="/marca/mascota-brazos-cruzados.png" alt="ZERO, la mascota de Medical">
+    </div>
+  </header>
+  <main class="marco">
+    <div class="tarjeta">
+      <h1>Panel de la feria</h1>
+      <p class="bajada">Avance de los colaboradores, preguntas y fechas del cuestionario.</p>
+      <form id="f-login" class="stack" style="margin-top:24px">
+        <div><label class="campo" for="clave">Clave de administrador</label><input id="clave" type="password" autocomplete="current-password" required></div>
+        <div id="login-err" class="nota error hidden" role="alert"></div>
+        <button class="btn full" type="submit">Entrar al panel</button>
       </form>
     </div>
-  </section>
+  </main>
+</div>
 
-  <section id="v-panel" class="hidden">
-    <div class="row" style="margin-bottom:16px">
-      <img src="/marca/logo.png" alt="Medical" class="logo-mini" onerror="this.remove()">
-      <div><h1 id="p-titulo">Panel de administración</h1><div class="muted small" id="p-plazo"></div></div>
-      <span class="spacer"></span>
-      <button class="sec" id="b-recargar">Actualizar</button>
-      <button class="sec" id="b-salir">Salir</button>
+<!-- ================= Panel ================= -->
+<div id="v-panel" class="hidden">
+  <header class="banda">
+    <div class="contenido">
+      <div class="barra">
+        <span class="logo-chip"><img src="/marca/logo.png" alt="Medical"></span>
+        <div style="min-width:0">
+          <h1 id="p-titulo">Feria de la Salud</h1>
+          <div class="sub" id="p-plazo"></div>
+        </div>
+        <span class="spacer"></span>
+        <button class="btn claro chico" id="b-recargar" type="button">Actualizar</button>
+        <button class="btn claro chico" id="b-salir" type="button">Salir</button>
+      </div>
+      <nav class="pestanas" role="tablist" id="tabs">
+        <button role="tab" data-t="avance" aria-selected="true">Avance</button>
+        <button role="tab" data-t="colab" aria-selected="false">Colaboradores</button>
+        <button role="tab" data-t="preg" aria-selected="false">Preguntas</button>
+        <button role="tab" data-t="conf" aria-selected="false">Configuración</button>
+      </nav>
     </div>
-    <nav class="tabs" id="tabs">
-      <button data-t="avance" class="act">Avance</button>
-      <button data-t="colab">Colaboradores</button>
-      <button data-t="preg">Preguntas</button>
-      <button data-t="conf">Configuración</button>
-    </nav>
+  </header>
 
-    <!-- AVANCE -->
-    <div data-p="avance" class="stack">
-      <div class="kpis" id="kpis"></div>
-      <div class="card">
-        <h2>Cobertura por tema</h2>
-        <p class="muted small">Porcentaje de colaboradores que ya respondieron las 3 preguntas de cada tema, y porcentaje de aciertos en ese tema.</p>
+  <main class="cuerpo">
+
+    <!-- ---------- AVANCE ---------- -->
+    <section data-p="avance" class="stack">
+      <div class="indicadores" id="kpis"></div>
+      <div class="panel">
+        <div class="panel-cab"><h2>Cobertura por tema</h2></div>
+        <p class="muted small">Qué porcentaje de colaboradores respondió las 3 preguntas de cada tema, y cuántas de esas respuestas fueron correctas.</p>
         <div class="cobertura" id="cobertura"></div>
       </div>
-      <div class="card stack">
-        <div class="row">
-          <h2 style="margin:0">Detalle por colaborador</h2>
-          <span class="spacer"></span>
-          <button id="b-export">Descargar Excel</button>
+      <div class="panel">
+        <div class="panel-cab">
+          <h2>Detalle por colaborador</h2>
+          <button class="btn" id="b-export" type="button">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M12 4v11m0 0l-4-4m4 4l4-4M5 20h14"/></svg>
+            Descargar Excel
+          </button>
         </div>
-        <div class="row">
-          <input id="buscar" placeholder="Buscar por nombre, documento o área" style="flex:2;min-width:200px">
-          <select id="f-estado" style="flex:1;min-width:160px">
+        <div class="filtros">
+          <input id="buscar" type="search" placeholder="Buscar por nombre, documento o área" aria-label="Buscar colaborador">
+          <select id="f-estado" aria-label="Filtrar por estado">
             <option value="">Todos los estados</option>
             <option>No ha iniciado</option><option>En progreso</option><option>Terminó</option>
           </select>
-          <select id="f-area" style="flex:1;min-width:160px"><option value="">Todas las áreas</option></select>
+          <select id="f-area" aria-label="Filtrar por área"><option value="">Todas las áreas</option></select>
         </div>
         <div class="leyenda">
-          <span>Cada casilla es un tema: respondidas/3.</span>
+          <span>Cada columna T es un tema:</span>
           <span><span class="cel c0">0</span> sin responder</span>
           <span><span class="cel c1">1-2</span> incompleto</span>
           <span><span class="cel c2">3</span> completo con errores</span>
-          <span><span class="cel c3">3✓</span> completo, todo correcto</span>
+          <span><span class="cel c3">3✓</span> todo correcto</span>
         </div>
         <div class="muted small" id="conteo"></div>
-        <div class="tabla-wrap"><table id="tabla"></table></div>
+        <div class="tabla"><table id="tabla"></table></div>
       </div>
-    </div>
+    </section>
 
-    <!-- COLABORADORES -->
-    <div data-p="colab" class="hidden stack">
-      <div class="card stack">
-        <h2>Cargar colaboradores desde Excel</h2>
-        <p class="muted">El archivo debe tener las columnas <b>documento</b>, <b>nombre</b> y <b>area</b>. Cada colaborador ingresa solo con su número de documento. Si el documento ya existe, se actualizan su nombre y área sin tocar sus respuestas.</p>
-        <div class="row">
-          <button class="sec" id="b-plantilla-c">Descargar plantilla</button>
-          <input type="file" id="file-c" accept=".xlsx,.xls,.csv" style="flex:1;min-width:220px">
+    <!-- ---------- COLABORADORES ---------- -->
+    <section data-p="colab" class="stack hidden">
+      <div class="panel">
+        <div class="panel-cab">
+          <h2 id="colab-titulo">Colaboradores</h2>
+          <button class="btn sec" id="b-abrir-excel" type="button" aria-expanded="false" aria-controls="caja-excel">Cargar desde Excel</button>
+          <button class="btn" id="b-nuevo" type="button">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            Agregar colaborador
+          </button>
         </div>
-        <div id="c-prev" class="muted small"></div>
-        <div id="c-err" class="err hidden"></div>
-        <button id="b-cargar-c" disabled>Cargar colaboradores</button>
-        <div id="c-ok" class="okbox hidden"></div>
-      </div>
-      <div class="card stack">
-        <h2>Eliminar un colaborador</h2>
-        <p class="muted small">Borra a la persona y todas sus respuestas. No se puede deshacer.</p>
-        <div class="row">
-          <input id="del-doc" placeholder="Número de documento" style="flex:1;min-width:200px">
-          <button class="sec" id="b-del">Eliminar</button>
+        <div id="caja-excel" class="archivo stack hidden">
+          <p>Sube un archivo con las columnas <b>documento</b>, <b>nombre</b> y <b>area</b>. Si un documento ya existe, se actualizan su nombre y su área; sus respuestas se conservan.</p>
+          <div class="row">
+            <input type="file" id="file-c" accept=".xlsx,.xls,.csv" aria-label="Archivo de colaboradores" style="flex:1;min-width:220px">
+            <button class="btn fantasma" id="b-plantilla-c" type="button">Descargar plantilla</button>
+          </div>
+          <div id="c-prev" class="muted small"></div>
+          <div id="c-err" class="nota error hidden" role="alert"></div>
+          <button class="btn" id="b-cargar-c" type="button" disabled>Cargar colaboradores</button>
         </div>
-        <div id="del-out"></div>
+        <div id="c-ok" class="nota exito hidden" role="status"></div>
+        <div id="c-fallo" class="nota error hidden" role="alert"></div>
+        <input id="buscar-c" type="search" placeholder="Buscar por nombre, documento o área" aria-label="Buscar colaborador">
+        <div class="tabla"><table id="tabla-c"></table></div>
+        <div id="vacio-c" class="vacio hidden">
+          <img src="/marca/mascota-caminando.png" alt="">
+          <p><b>Todavía no hay colaboradores.</b></p>
+          <p class="small" style="margin-top:4px">Agrégalos uno por uno o carga la lista completa desde Excel.</p>
+        </div>
       </div>
-    </div>
+    </section>
 
-    <!-- PREGUNTAS -->
-    <div data-p="preg" class="hidden stack">
-      <div class="card stack">
-        <h2>Preguntas del cuestionario</h2>
-        <p class="muted">Para cambiarlas: descarga las actuales en Excel, edítalas y vuelve a subir el archivo. Columnas: <b>tema</b>, <b>pregunta</b>, <b>opcion_a</b> a <b>opcion_d</b> y <b>correcta</b> (la letra: A, B, C o D). Los temas aparecen en el orden del archivo.</p>
-        <div class="row">
-          <button class="sec" id="b-desc-p">Descargar preguntas actuales</button>
-          <input type="file" id="file-p" accept=".xlsx,.xls,.csv" style="flex:1;min-width:220px">
+    <!-- ---------- PREGUNTAS ---------- -->
+    <section data-p="preg" class="stack hidden">
+      <div class="panel">
+        <div class="panel-cab">
+          <h2>Preguntas del cuestionario</h2>
+          <button class="btn sec" id="b-desc-p" type="button">Descargar en Excel</button>
         </div>
-        <div id="p-prev" class="muted small"></div>
-        <div id="p-err" class="err hidden"></div>
-        <button id="b-cargar-p" disabled>Reemplazar preguntas</button>
-        <div id="p-ok" class="okbox hidden"></div>
+        <p class="muted">Para cambiarlas, descarga el Excel, edítalo y súbelo de nuevo. Columnas: <b>tema</b>, <b>pregunta</b>, <b>opcion_a</b> a <b>opcion_d</b> y <b>correcta</b> (la letra A, B, C o D). Los temas aparecen en el orden del archivo.</p>
+        <div class="archivo stack">
+          <input type="file" id="file-p" accept=".xlsx,.xls,.csv" aria-label="Archivo de preguntas">
+          <div id="p-prev" class="muted small"></div>
+          <div id="p-err" class="nota error hidden" role="alert"></div>
+          <button class="btn" id="b-cargar-p" type="button" disabled>Reemplazar preguntas</button>
+        </div>
+        <div id="p-ok" class="nota exito hidden" role="status"></div>
       </div>
-      <div class="card"><h2>Vista previa</h2><div id="lista-p" class="small"></div></div>
-    </div>
+      <div class="panel pregs"><h2>Así las ven los colaboradores</h2><div id="lista-p"></div></div>
+    </section>
 
-    <!-- CONFIGURACIÓN -->
-    <div data-p="conf" class="hidden stack">
-      <div class="card stack">
+    <!-- ---------- CONFIGURACIÓN ---------- -->
+    <section data-p="conf" class="stack hidden">
+      <form class="panel" id="f-plazo">
         <h2>Plazo para responder</h2>
-        <p class="muted small">Fuera de estas fechas los colaboradores pueden entrar a ver, pero no responder. Hora de este computador.</p>
+        <p class="muted small">Fuera de estas fechas los colaboradores pueden entrar y ver sus respuestas, pero no responder. Usa la hora de este computador.</p>
         <div class="grid2">
-          <div><label for="c-ini">Abre</label><input id="c-ini" type="datetime-local"></div>
-          <div><label for="c-fin">Cierra</label><input id="c-fin" type="datetime-local"></div>
+          <div><label class="campo" for="c-ini">Abre</label><input id="c-ini" type="datetime-local" required></div>
+          <div><label class="campo" for="c-fin">Cierra</label><input id="c-fin" type="datetime-local" required></div>
         </div>
-        <div><label for="c-tit">Título</label><input id="c-tit"></div>
-        <div id="cf-err" class="err hidden"></div>
-        <div class="row"><button id="b-plazo">Guardar</button><span id="cf-ok" class="muted small"></span></div>
-      </div>
-      <div class="card stack">
-        <h2>Cambiar clave de administrador</h2>
+        <div><label class="campo" for="c-tit">Nombre del cuestionario</label><input id="c-tit"></div>
+        <div id="cf-err" class="nota error hidden" role="alert"></div>
+        <div class="row"><button class="btn" type="submit">Guardar plazo</button><span id="cf-ok" class="muted small" role="status"></span></div>
+      </form>
+      <form class="panel" id="f-clave">
+        <h2>Clave de administrador</h2>
         <div class="grid2">
-          <div><label for="k-act">Clave actual</label><input id="k-act" type="password" autocomplete="current-password"></div>
-          <div><label for="k-new">Clave nueva (mínimo 8 caracteres)</label><input id="k-new" type="password" autocomplete="new-password"></div>
+          <div><label class="campo" for="k-act">Clave actual</label><input id="k-act" type="password" autocomplete="current-password" required></div>
+          <div><label class="campo" for="k-new">Clave nueva</label><input id="k-new" type="password" autocomplete="new-password" minlength="8" required aria-describedby="k-ayuda"><div class="muted small" id="k-ayuda" style="margin-top:6px">Mínimo 8 caracteres.</div></div>
         </div>
-        <div id="k-err" class="err hidden"></div>
-        <div class="row"><button id="b-clave">Cambiar clave</button><span id="k-ok" class="muted small"></span></div>
-      </div>
-    </div>
-  </section>
+        <div id="k-err" class="nota error hidden" role="alert"></div>
+        <div class="row"><button class="btn" type="submit">Cambiar clave</button><span id="k-ok" class="muted small" role="status"></span></div>
+      </form>
+    </section>
+  </main>
+</div>
 
-  <div id="cargando" class="muted" style="text-align:center;margin-top:20vh">Cargando…</div>
-</main>
+<!-- Agregar / editar colaborador -->
+<dialog id="dlg-colab" aria-labelledby="dlg-colab-t">
+  <form id="f-colab" method="dialog">
+    <h2 id="dlg-colab-t">Agregar colaborador</h2>
+    <div><label class="campo" for="fc-doc">Número de documento</label><input id="fc-doc" inputmode="numeric" required autocomplete="off"></div>
+    <div><label class="campo" for="fc-nom">Nombre completo</label><input id="fc-nom" required autocomplete="off"></div>
+    <div><label class="campo" for="fc-area">Área</label><input id="fc-area" list="areas" autocomplete="off"><datalist id="areas"></datalist></div>
+    <div id="fc-err" class="nota error hidden" role="alert"></div>
+    <div class="acciones">
+      <button class="btn sec" type="button" id="fc-cancelar">Cancelar</button>
+      <button class="btn" type="submit" id="fc-guardar">Agregar</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Confirmación -->
+<dialog id="dlg-conf" aria-labelledby="dlg-conf-t">
+  <form method="dialog">
+    <h2 id="dlg-conf-t"></h2>
+    <p id="dlg-conf-m" class="muted"></p>
+    <div class="acciones">
+      <button class="btn sec" value="no" type="submit">Cancelar</button>
+      <button class="btn peligro-lleno" value="si" type="submit" id="dlg-conf-si"></button>
+    </div>
+  </form>
+</dialog>
+
+<div id="cargando" class="vacio" style="margin-top:20vh" role="status">Cargando…</div>
 
 <script>
 const $ = (id) => document.getElementById(id);
-const ls = {
+const ss = {
   get(k) { try { return sessionStorage.getItem(k); } catch { return null; } },
   set(k, v) { try { sessionStorage.setItem(k, v); } catch {} },
   del(k) { try { sessionStorage.removeItem(k); } catch {} },
 };
-let token = ls.get('fs_admin');
-let rep = null;
-let filasC = null, filasP = null;
+let token = ss.get('fs_admin');
+let rep = null, filasC = null, filasP = null, preguntasAct = [], editando = null;
 
 function vista(id) { for (const v of ['v-login', 'v-panel', 'cargando']) $(v).classList.toggle('hidden', v !== id); }
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const fmt = (iso) => iso ? new Date(iso).toLocaleString('es-CO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+const fmt = (iso) => iso ? new Date(iso).toLocaleString('es-CO', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : '';
 const aLocal = (iso) => { const d = new Date(iso); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
-function mostrar(el, txt) { $(el).textContent = txt; $(el).classList.toggle('hidden', !txt); }
+const pct = (a, b) => (b ? Math.round(100 * a / b) : 0);
+function nota(el, txt) { $(el).textContent = txt; $(el).classList.toggle('hidden', !txt); }
 
 async function api(ruta, cuerpo) {
   const r = await fetch(ruta, {
@@ -168,12 +227,22 @@ async function api(ruta, cuerpo) {
     body: cuerpo ? JSON.stringify(cuerpo) : undefined,
   });
   const j = await r.json().catch(() => ({}));
-  if (r.status === 401 && ruta !== '/api/admin/ingresar') { token = null; ls.del('fs_admin'); vista('v-login'); }
-  if (!r.ok) { const e = new Error(j.mensaje || 'Error de conexión'); e.codigo = j.error; throw e; }
+  if (r.status === 401 && ruta !== '/api/admin/ingresar') { token = null; ss.del('fs_admin'); nota('login-err', 'Tu sesión terminó. Entra de nuevo.'); vista('v-login'); }
+  if (!r.ok) { const e = new Error(j.mensaje || 'No hay conexión con el servidor.'); e.codigo = j.error; throw e; }
   return j;
 }
 
-// ------------------------------------------------ resumen por colaborador
+function confirmar(titulo, mensaje, accion) {
+  return new Promise((res) => {
+    const d = $('dlg-conf');
+    $('dlg-conf-t').textContent = titulo; $('dlg-conf-m').textContent = mensaje; $('dlg-conf-si').textContent = accion;
+    d.returnValue = '';
+    d.onclose = () => res(d.returnValue === 'si');
+    d.showModal();
+  });
+}
+
+// ------------------------------------------------ datos
 function resumir(c) {
   let r = 0, n = 0, ok = 0, completos = 0;
   const faltan = [], errores = [];
@@ -182,12 +251,11 @@ function resumir(c) {
     if (t.r >= t.n) { completos++; if (t.c < t.n) errores.push(rep.temas[i].nombre); }
     else faltan.push(rep.temas[i].nombre);
   });
-  const estado = r === 0 ? 'No ha iniciado' : r < n ? 'En progreso' : 'Terminó';
-  return { r, n, ok, completos, faltan, errores, estado };
+  return { r, n, ok, completos, faltan, errores, estado: r === 0 ? 'No ha iniciado' : r < n ? 'En progreso' : 'Terminó' };
 }
 
-async function cargar() {
-  vista('cargando');
+async function cargar(silencioso) {
+  if (!silencioso) vista('cargando');
   try {
     const crudo = await api('/api/admin/reporte');
     rep = { config: crudo.config, temas: crudo.temas };
@@ -203,76 +271,131 @@ async function cargar() {
 }
 
 function pintar() {
-  const cfg = rep.config;
-  $('p-titulo').textContent = cfg.titulo;
-  const t = Date.now();
+  const cfg = rep.config, t = Date.now();
   const est = t < new Date(cfg.inicio) ? 'Aún no abre' : t > new Date(cfg.cierre) ? 'Cerrado' : 'Abierto';
-  $('p-plazo').textContent = `${est} · de ${fmt(cfg.inicio)} a ${fmt(cfg.cierre)}`;
+  $('p-titulo').textContent = cfg.titulo;
+  $('p-plazo').textContent = `${est}: del ${fmt(cfg.inicio)} al ${fmt(cfg.cierre)}`;
   $('c-ini').value = aLocal(cfg.inicio); $('c-fin').value = aLocal(cfg.cierre); $('c-tit').value = cfg.titulo;
 
-  const cs = rep.colaboradores;
-  const tot = cs.length;
+  const cs = rep.colaboradores, tot = cs.length;
   const cuenta = (e) => cs.filter((c) => c.s.estado === e).length;
   const respTot = cs.reduce((a, c) => a + c.s.r, 0), okTot = cs.reduce((a, c) => a + c.s.ok, 0);
   $('kpis').innerHTML = [
-    ['Colaboradores', tot],
-    ['Terminaron', cuenta('Terminó'), tot],
-    ['En progreso', cuenta('En progreso'), tot],
-    ['No han iniciado', cuenta('No ha iniciado'), tot],
-    ['Aciertos', respTot ? Math.round(100 * okTot / respTot) + '%' : '–'],
-  ].map(([l, v, d]) => `<div class="kpi"><div class="v">${v}</div><div class="l">${l}${d ? ` · ${Math.round(100 * v / (d || 1))}%` : ''}</div></div>`).join('');
+    [tot, 'colaboradores registrados'],
+    [cuenta('Terminó'), 'terminaron', tot],
+    [cuenta('En progreso'), 'van a medias', tot],
+    [cuenta('No ha iniciado'), 'no han empezado', tot],
+    [respTot ? pct(okTot, respTot) + '%' : '–', 'de respuestas correctas'],
+  ].map(([v, l, d]) => `<div class="indicador"><div class="v">${v}</div><div class="l">${l}${d ? ` <span class="pct">${pct(v, d)}%</span>` : ''}</div></div>`).join('');
 
-  $('cobertura').innerHTML = rep.temas.map((tm, i) => {
+  $('cobertura').innerHTML = tot === 0 ? '<p class="muted">Cuando agregues colaboradores verás aquí su avance por tema.</p>' : rep.temas.map((tm, i) => {
     const comp = cs.filter((c) => c.por_tema[i].r >= c.por_tema[i].n).length;
     const resp = cs.reduce((a, c) => a + c.por_tema[i].r, 0), bien = cs.reduce((a, c) => a + c.por_tema[i].c, 0);
-    const pct = tot ? Math.round(100 * comp / tot) : 0;
-    return `<div class="fila"><span>${esc(tm.nombre)}</span><div class="bar"><i style="width:${pct}%"></i></div><b class="num">${pct}%</b></div>
-      <div class="muted small" style="margin:-4px 0 4px">${comp} de ${tot} lo completaron · aciertos ${resp ? Math.round(100 * bien / resp) : 0}%</div>`;
+    const p = pct(comp, tot);
+    return `<div class="fila"><span class="nombre">${esc(tm.nombre)}</span><div class="pista" role="img" aria-label="${p}% completaron"><i style="width:${p}%"></i></div><b>${p}%</b>
+      <span class="det">${comp} de ${tot} lo completaron · ${pct(bien, resp)}% de aciertos</span></div>`;
   }).join('');
 
   const areas = [...new Set(cs.map((c) => c.area).filter(Boolean))].sort();
   const fa = $('f-area'), prev = fa.value;
   fa.innerHTML = '<option value="">Todas las áreas</option>' + areas.map((a) => `<option>${esc(a)}</option>`).join('');
   fa.value = prev;
+  $('areas').innerHTML = areas.map((a) => `<option value="${esc(a)}">`).join('');
   pintarTabla();
+  pintarColaboradores();
   pintarPreguntas();
 }
 
-function filtrados() {
-  const q = $('buscar').value.trim().toLowerCase(), e = $('f-estado').value, a = $('f-area').value;
-  return rep.colaboradores.filter((c) =>
-    (!e || c.s.estado === e) && (!a || c.area === a) &&
-    (!q || c.nombre.toLowerCase().includes(q) || c.documento.includes(q) || (c.area || '').toLowerCase().includes(q)));
-}
+const coincide = (c, q) => !q || c.nombre.toLowerCase().includes(q) || c.documento.toLowerCase().includes(q) || c.area.toLowerCase().includes(q);
 
 function pintarTabla() {
-  const lista = filtrados();
+  const q = $('buscar').value.trim().toLowerCase(), e = $('f-estado').value, a = $('f-area').value;
+  const lista = rep.colaboradores.filter((c) => (!e || c.s.estado === e) && (!a || c.area === a) && coincide(c, q));
   const max = 500;
-  $('conteo').textContent = `${lista.length} colaboradores` + (lista.length > max ? ` (se muestran los primeros ${max}; usa el buscador o descarga el Excel)` : '');
-  const cab = `<thead><tr><th>Documento</th><th>Nombre</th><th>Área</th><th>Estado</th><th class="num">Resp.</th><th class="num">Aciertos</th>
-    ${rep.temas.map((t, i) => `<th title="${esc(t.nombre)}">T${i + 1}</th>`).join('')}<th>Temas que le faltan</th><th>Última respuesta</th></tr></thead>`;
+  $('conteo').textContent = `${lista.length} colaboradores` + (lista.length > max ? `. Se muestran los primeros ${max}; usa el buscador o descarga el Excel.` : '');
+  const cab = `<thead><tr><th>Documento</th><th>Nombre</th><th>Área</th><th>Estado</th><th class="num">Respondidas</th><th class="num">Aciertos</th>
+    ${rep.temas.map((t, i) => `<th title="${esc(t.nombre)}" class="num">T${i + 1}</th>`).join('')}<th>Le faltan</th><th>Última respuesta</th></tr></thead>`;
   const filas = lista.slice(0, max).map((c) => {
     const pill = c.s.estado === 'Terminó' ? 'si' : c.s.estado === 'En progreso' ? 'pr' : 'no';
     const celdas = c.por_tema.map((t, i) => {
       const k = t.r === 0 ? 0 : t.r < t.n ? 1 : t.c < t.n ? 2 : 3;
-      return `<td><span class="cel c${k}" title="${esc(rep.temas[i].nombre)}: ${t.r}/${t.n} respondidas, ${t.c} correctas">${t.r}${k === 3 ? '✓' : ''}</span></td>`;
+      return `<td class="num"><span class="cel c${k}" title="${esc(rep.temas[i].nombre)}: ${t.r} de ${t.n} respondidas, ${t.c} correctas">${t.r}${k === 3 ? '✓' : ''}</span></td>`;
     }).join('');
     return `<tr><td>${esc(c.documento)}</td><td>${esc(c.nombre)}</td><td>${esc(c.area)}</td><td><span class="pill ${pill}">${c.s.estado}</span></td>
-      <td class="num">${c.s.r}/${c.s.n}</td><td class="num">${c.s.r ? Math.round(100 * c.s.ok / c.s.r) + '%' : '–'}</td>${celdas}
-      <td style="white-space:normal;min-width:220px">${esc(c.s.faltan.join(', '))}</td><td>${fmt(c.ultima_respuesta)}</td></tr>`;
+      <td class="num">${c.s.r} / ${c.s.n}</td><td class="num">${c.s.r ? pct(c.s.ok, c.s.r) + '%' : '–'}</td>${celdas}
+      <td style="white-space:normal;min-width:240px">${c.s.faltan.length === rep.temas.length ? 'Todos los temas' : esc(c.s.faltan.join(', '))}</td><td>${fmt(c.ultima_respuesta)}</td></tr>`;
   }).join('');
-  $('tabla').innerHTML = cab + '<tbody>' + filas + '</tbody>';
+  $('tabla').innerHTML = cab + '<tbody>' + (filas || `<tr><td colspan="${8 + rep.temas.length}" class="vacio">No hay colaboradores con ese filtro.</td></tr>`) + '</tbody>';
 }
 
+// ------------------------------------------------ colaboradores (manual)
+function pintarColaboradores() {
+  const q = $('buscar-c').value.trim().toLowerCase();
+  const todos = rep.colaboradores;
+  $('colab-titulo').textContent = `Colaboradores (${todos.length})`;
+  $('vacio-c').classList.toggle('hidden', todos.length > 0);
+  $('tabla-c').parentElement.classList.toggle('hidden', todos.length === 0);
+  $('buscar-c').classList.toggle('hidden', todos.length === 0);
+  const lista = todos.filter((c) => coincide(c, q));
+  const max = 300;
+  $('tabla-c').innerHTML = `<thead><tr><th>Documento</th><th>Nombre</th><th>Área</th><th>Avance</th><th class="num"><span class="sr">Acciones</span></th></tr></thead><tbody>` +
+    (lista.slice(0, max).map((c) => `<tr><td>${esc(c.documento)}</td><td>${esc(c.nombre)}</td><td>${esc(c.area) || '<span class="muted">Sin área</span>'}</td>
+      <td>${c.s.r} de ${c.s.n} preguntas</td>
+      <td class="acciones"><button class="btn fantasma chico" data-ed="${esc(c.documento)}" type="button">Editar</button>
+      <button class="btn fantasma chico" style="color:var(--error)" data-del="${esc(c.documento)}" type="button">Eliminar</button></td></tr>`).join('') ||
+      '<tr><td colspan="5" class="vacio">Nadie coincide con esa búsqueda.</td></tr>') +
+    (lista.length > max ? `<tr><td colspan="5" class="muted small">Se muestran ${max} de ${lista.length}. Usa el buscador para encontrar a alguien.</td></tr>` : '') + '</tbody>';
+}
+
+function abrirColab(c) {
+  editando = c ? c.documento : null;
+  $('dlg-colab-t').textContent = c ? 'Editar colaborador' : 'Agregar colaborador';
+  $('fc-guardar').textContent = c ? 'Guardar cambios' : 'Agregar';
+  $('fc-doc').value = c?.documento || ''; $('fc-nom').value = c?.nombre || ''; $('fc-area').value = c?.area || '';
+  nota('fc-err', '');
+  $('dlg-colab').showModal();
+  (c ? $('fc-nom') : $('fc-doc')).focus();
+}
+$('b-nuevo').onclick = () => abrirColab(null);
+$('fc-cancelar').onclick = () => $('dlg-colab').close();
+$('f-colab').onsubmit = async (ev) => {
+  ev.preventDefault();
+  const b = $('fc-guardar'); b.disabled = true; nota('fc-err', '');
+  try {
+    const r = await api('/api/admin/colaborador', { documento_anterior: editando, documento: $('fc-doc').value, nombre: $('fc-nom').value, area: $('fc-area').value });
+    $('dlg-colab').close();
+    nota('c-ok', r.accion === 'creado' ? `Agregaste a ${$('fc-nom').value.trim()}.` : `Guardaste los cambios de ${$('fc-nom').value.trim()}.`);
+    await cargar(true);
+  } catch (e) { nota('fc-err', e.message); }
+  b.disabled = false;
+};
+$('tabla-c').onclick = async (ev) => {
+  const ed = ev.target.closest('[data-ed]'), del = ev.target.closest('[data-del]');
+  if (ed) abrirColab(rep.colaboradores.find((c) => c.documento === ed.dataset.ed));
+  if (del) {
+    const c = rep.colaboradores.find((x) => x.documento === del.dataset.del);
+    const si = await confirmar(`¿Eliminar a ${c.nombre}?`, `Se borran su registro y sus ${c.s.r} respuestas. No se puede deshacer.`, 'Eliminar');
+    if (!si) return;
+    nota('c-fallo', '');
+    try { await api('/api/admin/eliminar-colaborador', { documento: c.documento }); nota('c-ok', `Eliminaste a ${c.nombre}.`); await cargar(true); }
+    catch (e) { nota('c-ok', ''); nota('c-fallo', e.message); }
+  }
+};
+$('buscar-c').oninput = pintarColaboradores;
+$('b-abrir-excel').onclick = () => {
+  const caja = $('caja-excel'), abierto = caja.classList.toggle('hidden') === false;
+  $('b-abrir-excel').setAttribute('aria-expanded', abierto);
+};
+
+// ------------------------------------------------ Excel
 function exportar() {
   const temas = rep.temas.map((t) => t.nombre);
   const resumen = rep.colaboradores.map((c) => {
     const o = {
       Documento: c.documento, Nombre: c.nombre, 'Área': c.area, Estado: c.s.estado,
       'Preguntas respondidas': c.s.r, 'Preguntas totales': c.s.n, 'Respuestas correctas': c.s.ok,
-      '% aciertos': c.s.r ? Math.round(100 * c.s.ok / c.s.r) : '',
-      'Temas completos': c.s.completos, 'Temas que le faltan': c.s.faltan.join(', '),
-      'Temas con errores': c.s.errores.join(', '),
+      '% aciertos': c.s.r ? pct(c.s.ok, c.s.r) : '',
+      'Temas completos': c.s.completos, 'Temas que le faltan': c.s.faltan.join(', '), 'Temas con errores': c.s.errores.join(', '),
     };
     c.por_tema.forEach((t, i) => (o[temas[i]] = t.r === 0 ? 'Sin responder' : t.r < t.n ? `Incompleto (${t.r}/${t.n})` : t.c < t.n ? `Completo con errores (${t.c}/${t.n})` : 'Completo, todo correcto'));
     o['Último ingreso'] = c.ultimo_ingreso ? new Date(c.ultimo_ingreso) : '';
@@ -281,15 +404,13 @@ function exportar() {
   });
   const detalle = [];
   rep.colaboradores.forEach((c) => c.por_tema.forEach((t, i) => detalle.push({
-    Documento: c.documento, Nombre: c.nombre, 'Área': c.area, Tema: temas[i],
-    Respondidas: t.r, Preguntas: t.n, Correctas: t.c,
+    Documento: c.documento, Nombre: c.nombre, 'Área': c.area, Tema: temas[i], Respondidas: t.r, Preguntas: t.n, Correctas: t.c,
     Estado: t.r === 0 ? 'Sin responder' : t.r < t.n ? 'Incompleto' : t.c < t.n ? 'Completo con errores' : 'Completo, todo correcto',
   })));
   const porTema = rep.temas.map((tm, i) => {
-    const comp = rep.colaboradores.filter((c) => c.por_tema[i].r >= c.por_tema[i].n).length;
-    const resp = rep.colaboradores.reduce((a, c) => a + c.por_tema[i].r, 0), bien = rep.colaboradores.reduce((a, c) => a + c.por_tema[i].c, 0);
-    return { Tema: tm.nombre, 'Colaboradores que lo completaron': comp, 'Total colaboradores': rep.colaboradores.length,
-      '% cobertura': rep.colaboradores.length ? Math.round(100 * comp / rep.colaboradores.length) : 0, '% aciertos': resp ? Math.round(100 * bien / resp) : 0 };
+    const cs = rep.colaboradores, comp = cs.filter((c) => c.por_tema[i].r >= c.por_tema[i].n).length;
+    const resp = cs.reduce((a, c) => a + c.por_tema[i].r, 0), bien = cs.reduce((a, c) => a + c.por_tema[i].c, 0);
+    return { Tema: tm.nombre, 'Colaboradores que lo completaron': comp, 'Total colaboradores': cs.length, '% cobertura': pct(comp, cs.length), '% aciertos': pct(bien, resp) };
   });
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(resumen), 'Por colaborador');
@@ -298,7 +419,6 @@ function exportar() {
   XLSX.writeFile(wb, `avance-feria-salud-${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
 
-// ------------------------------------------------ carga de archivos
 function leerHoja(file) {
   return new Promise((res, rej) => {
     const fr = new FileReader();
@@ -306,43 +426,41 @@ function leerHoja(file) {
       try {
         const wb = XLSX.read(fr.result, { type: 'array' });
         const filas = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '', raw: false });
-        // normaliza encabezados: minúsculas, sin tildes ni espacios
         res(filas.map((f) => Object.fromEntries(Object.entries(f).map(([k, v]) =>
           [k.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, '_').trim(), String(v).trim()]))));
-      } catch (e) { rej(new Error('No se pudo leer el archivo')); }
+      } catch { rej(new Error('No pudimos leer el archivo. Guárdalo como Excel (.xlsx) e inténtalo de nuevo.')); }
     };
-    fr.onerror = () => rej(new Error('No se pudo leer el archivo'));
+    fr.onerror = () => rej(new Error('No pudimos leer el archivo.'));
     fr.readAsArrayBuffer(file);
   });
 }
 
 $('file-c').onchange = async (ev) => {
-  filasC = null; $('b-cargar-c').disabled = true; mostrar('c-err', ''); $('c-ok').classList.add('hidden'); $('c-prev').textContent = '';
+  filasC = null; $('b-cargar-c').disabled = true; nota('c-err', ''); nota('c-ok', ''); $('c-prev').textContent = '';
   const f = ev.target.files[0]; if (!f) return;
   try {
     const filas = await leerHoja(f);
     const doc = (x) => x.documento || x.cedula || x.identificacion || x.codigo || '';
-    filasC = filas.map((x) => ({ documento: doc(x), nombre: x.nombre || x.nombre_completo || '', area: x.area || x.dependencia || '' }))
-      .filter((x) => x.documento && x.nombre);
-    if (!filasC.length) throw new Error('No encontré filas con las columnas documento y nombre');
-    $('c-prev').textContent = `${filasC.length} colaboradores listos para cargar (de ${filas.length} filas en el archivo).`;
+    filasC = filas.map((x) => ({ documento: doc(x), nombre: x.nombre || x.nombre_completo || '', area: x.area || x.dependencia || '' })).filter((x) => x.documento && x.nombre);
+    if (!filasC.length) throw new Error('No encontramos filas con las columnas documento y nombre. Revisa los encabezados o usa la plantilla.');
+    $('c-prev').textContent = `${filasC.length} colaboradores listos para cargar, de ${filas.length} filas del archivo.`;
     $('b-cargar-c').disabled = false;
-  } catch (e) { mostrar('c-err', e.message); }
+  } catch (e) { nota('c-err', e.message); }
 };
 $('b-cargar-c').onclick = async () => {
-  const b = $('b-cargar-c'); b.disabled = true; b.textContent = 'Cargando…'; mostrar('c-err', '');
+  const b = $('b-cargar-c'); b.disabled = true; nota('c-err', '');
   try {
     const r = { nuevos: 0, actualizados: 0, omitidos: 0 };
     for (let i = 0; i < filasC.length; i += 200) {
-      b.textContent = `Cargando… ${Math.min(i + 200, filasC.length)} de ${filasC.length}`;
+      b.textContent = `Cargando ${Math.min(i + 200, filasC.length)} de ${filasC.length}…`;
       const x = await api('/api/admin/colaboradores', { filas: filasC.slice(i, i + 200) });
       r.nuevos += x.nuevos; r.actualizados += x.actualizados; r.omitidos += x.omitidos;
     }
-    $('c-ok').textContent = `Listo: ${r.nuevos} nuevos, ${r.actualizados} actualizados${r.omitidos ? `, ${r.omitidos} omitidos (vacíos o repetidos)` : ''}.`;
-    $('c-ok').classList.remove('hidden');
-    $('file-c').value = ''; filasC = null;
-    cargar();
-  } catch (e) { mostrar('c-err', e.message); b.disabled = false; }
+    nota('c-ok', `Cargaste ${r.nuevos} colaboradores nuevos y actualizaste ${r.actualizados}.` + (r.omitidos ? ` ${r.omitidos} filas se omitieron por estar vacías o repetidas.` : ''));
+    $('file-c').value = ''; filasC = null; $('c-prev').textContent = '';
+    $('caja-excel').classList.add('hidden'); $('b-abrir-excel').setAttribute('aria-expanded', 'false');
+    await cargar(true);
+  } catch (e) { nota('c-err', e.message); b.disabled = false; }
   b.textContent = 'Cargar colaboradores';
 };
 $('b-plantilla-c').onclick = () => {
@@ -350,25 +468,17 @@ $('b-plantilla-c').onclick = () => {
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{ documento: '1020304050', nombre: 'Nombre Apellido', area: 'Producción' }]), 'Colaboradores');
   XLSX.writeFile(wb, 'plantilla-colaboradores.xlsx');
 };
-$('b-del').onclick = async () => {
-  const d = $('del-doc').value.trim(); if (!d) return;
-  if (!confirm(`¿Eliminar al colaborador ${d} y todas sus respuestas?`)) return;
-  $('del-out').innerHTML = '';
-  try {
-    await api('/api/admin/eliminar-colaborador', { documento: d });
-    $('del-out').innerHTML = '<div class="okbox">Colaborador eliminado.</div>'; $('del-doc').value = ''; cargar();
-  } catch (e) { $('del-out').innerHTML = `<div class="err">${esc(e.message)}</div>`; }
-};
 
 // ------------------------------------------------ preguntas
-let preguntasAct = [];
 async function pintarPreguntas() {
   try { preguntasAct = (await api('/api/admin/preguntas')).preguntas; } catch { return; }
-  let tema = '';
+  let tema = '', k = 0;
   $('lista-p').innerHTML = preguntasAct.map((p) => {
-    const h = p.tema !== tema ? `<h2 style="margin:18px 0 8px">${esc(p.tema)}</h2>` : '';
-    tema = p.tema;
-    return h + `<p><b>${esc(p.enunciado)}</b><br>${p.opciones.map((o, i) => `<span style="${i === p.correcta ? 'color:var(--ok);font-weight:700' : ''}">${'ABCDEFGH'[i]}) ${esc(o)}${i === p.correcta ? ' ✓' : ''}</span>`).join('<br>')}</p>`;
+    const h = p.tema !== tema ? `<h3>${esc(p.tema)}</h3>` : '';
+    if (p.tema !== tema) k = 0;
+    tema = p.tema; k++;
+    return h + `<p><b>${k}. ${esc(p.enunciado)}</b><br>${p.opciones.map((o, i) => i === p.correcta
+      ? `<span class="ok">${'ABCDEFGH'[i]}) ${esc(o)} · correcta</span>` : `${'ABCDEFGH'[i]}) ${esc(o)}`).join('<br>')}</p>`;
   }).join('');
 }
 $('b-desc-p').onclick = () => {
@@ -378,73 +488,72 @@ $('b-desc-p').onclick = () => {
   XLSX.writeFile(wb, 'preguntas-feria-salud.xlsx');
 };
 $('file-p').onchange = async (ev) => {
-  filasP = null; $('b-cargar-p').disabled = true; mostrar('p-err', ''); $('p-ok').classList.add('hidden'); $('p-prev').textContent = '';
+  filasP = null; $('b-cargar-p').disabled = true; nota('p-err', ''); nota('p-ok', ''); $('p-prev').textContent = '';
   const f = ev.target.files[0]; if (!f) return;
   try {
     const filas = await leerHoja(f);
-    filasP = filas.filter((x) => x.tema || x.pregunta).map((x) => {
-      const opciones = ['opcion_a', 'opcion_b', 'opcion_c', 'opcion_d', 'opcion_e'].map((k) => x[k]).filter(Boolean);
-      const letra = (x.correcta || '').toUpperCase().trim();
-      return { tema: x.tema, enunciado: x.pregunta, opciones, correcta: 'ABCDE'.indexOf(letra) };
-    });
-    if (!filasP.length) throw new Error('No encontré preguntas. Revisa los encabezados: tema, pregunta, opcion_a…opcion_d, correcta');
-    const temas = new Set(filasP.map((p) => p.tema));
-    $('p-prev').textContent = `${filasP.length} preguntas en ${temas.size} temas listas para cargar.`;
+    filasP = filas.filter((x) => x.tema || x.pregunta).map((x) => ({
+      tema: x.tema, enunciado: x.pregunta,
+      opciones: ['opcion_a', 'opcion_b', 'opcion_c', 'opcion_d', 'opcion_e'].map((k) => x[k]).filter(Boolean),
+      correcta: 'ABCDE'.indexOf((x.correcta || '').toUpperCase().trim()),
+    }));
+    if (!filasP.length) throw new Error('No encontramos preguntas. Revisa los encabezados: tema, pregunta, opcion_a a opcion_d y correcta.');
+    $('p-prev').textContent = `${filasP.length} preguntas en ${new Set(filasP.map((p) => p.tema)).size} temas, listas para cargar.`;
     $('b-cargar-p').disabled = false;
-  } catch (e) { mostrar('p-err', e.message); }
+  } catch (e) { nota('p-err', e.message); }
 };
 $('b-cargar-p').onclick = async () => {
-  const b = $('b-cargar-p'); b.disabled = true; mostrar('p-err', '');
+  const b = $('b-cargar-p'); b.disabled = true; nota('p-err', '');
   try {
     let r;
     try { r = await api('/api/admin/preguntas', { preguntas: filasP }); }
     catch (e) {
       if (e.codigo !== 'HAY_RESPUESTAS') throw e;
-      if (!confirm(e.message + ' ¿Continuar de todas formas?')) { b.disabled = false; return; }
+      if (!(await confirmar('¿Reemplazar las preguntas?', e.message, 'Reemplazar y borrar respuestas'))) { b.disabled = false; return; }
       r = await api('/api/admin/preguntas', { preguntas: filasP, forzar: true });
     }
-    $('p-ok').textContent = `Listo: ${r.preguntas} preguntas en ${r.temas} temas.`; $('p-ok').classList.remove('hidden');
-    $('file-p').value = ''; filasP = null;
-    cargar();
-  } catch (e) { mostrar('p-err', e.message); b.disabled = false; }
+    nota('p-ok', `Cargaste ${r.preguntas} preguntas en ${r.temas} temas.`);
+    $('file-p').value = ''; filasP = null; $('p-prev').textContent = '';
+    await cargar(true);
+  } catch (e) { nota('p-err', e.message); b.disabled = false; }
 };
 
 // ------------------------------------------------ configuración
-$('b-plazo').onclick = async () => {
-  mostrar('cf-err', ''); $('cf-ok').textContent = '';
+$('f-plazo').onsubmit = async (ev) => {
+  ev.preventDefault(); nota('cf-err', ''); $('cf-ok').textContent = '';
   try {
     await api('/api/admin/plazo', { inicio: new Date($('c-ini').value).toISOString(), cierre: new Date($('c-fin').value).toISOString(), titulo: $('c-tit').value });
-    $('cf-ok').textContent = 'Guardado ✓'; cargar();
-  } catch (e) { mostrar('cf-err', e.message); }
+    $('cf-ok').textContent = 'Plazo guardado.'; await cargar(true);
+  } catch (e) { nota('cf-err', e.message); }
 };
-$('b-clave').onclick = async () => {
-  mostrar('k-err', ''); $('k-ok').textContent = '';
+$('f-clave').onsubmit = async (ev) => {
+  ev.preventDefault(); nota('k-err', ''); $('k-ok').textContent = '';
   try {
     await api('/api/admin/clave', { actual: $('k-act').value, nueva: $('k-new').value });
-    $('k-ok').textContent = 'Clave cambiada. Vuelve a entrar con la nueva.';
-    setTimeout(() => { token = null; ls.del('fs_admin'); vista('v-login'); }, 1500);
-  } catch (e) { mostrar('k-err', e.message); }
+    $('k-ok').textContent = 'Clave cambiada. Entra de nuevo con la clave nueva.';
+    setTimeout(() => { token = null; ss.del('fs_admin'); vista('v-login'); }, 1800);
+  } catch (e) { nota('k-err', e.message); }
 };
 
 // ------------------------------------------------ navegación
 $('tabs').onclick = (ev) => {
-  const t = ev.target.dataset.t; if (!t) return;
-  for (const b of $('tabs').children) b.classList.toggle('act', b.dataset.t === t);
+  const t = ev.target.closest('[data-t]')?.dataset.t; if (!t) return;
+  for (const b of $('tabs').children) b.setAttribute('aria-selected', b.dataset.t === t);
   for (const p of document.querySelectorAll('[data-p]')) p.classList.toggle('hidden', p.dataset.p !== t);
 };
 $('buscar').oninput = pintarTabla;
 $('f-estado').onchange = pintarTabla;
 $('f-area').onchange = pintarTabla;
 $('b-export').onclick = exportar;
-$('b-recargar').onclick = cargar;
-$('b-salir').onclick = () => { token = null; ls.del('fs_admin'); vista('v-login'); };
+$('b-recargar').onclick = () => cargar(true);
+$('b-salir').onclick = () => { token = null; ss.del('fs_admin'); nota('login-err', ''); vista('v-login'); };
 $('f-login').onsubmit = async (ev) => {
-  ev.preventDefault(); mostrar('login-err', '');
+  ev.preventDefault(); nota('login-err', '');
   try {
     token = (await api('/api/admin/ingresar', { clave: $('clave').value })).token;
-    ls.set('fs_admin', token); $('clave').value = '';
+    ss.set('fs_admin', token); $('clave').value = '';
     cargar();
-  } catch (e) { mostrar('login-err', e.message); }
+  } catch (e) { nota('login-err', e.message); }
 };
 
 token ? cargar() : vista('v-login');

@@ -2,72 +2,108 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Cuestionario Feria de la Salud</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d2b5e">
+<title>Feria de la Salud · Medical</title>
+<link rel="preload" href="/fuentes/lexend-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fuentes/lexend-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/estilos.css">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💙</text></svg>">
+<link rel="icon" type="image/png" href="/marca/logo.png">
 </head>
 <body>
-<main class="wrap">
 
-  <!-- Ingreso -->
-  <section id="v-login" class="hidden">
-    <div class="card stack login-card">
-      <div class="marca"><img src="/marca/logo.png" alt="Medical" class="logo-img" onerror="this.remove()"></div>
-      <img src="/marca/mascota-presentando.png" alt="ZERO, la mascota" class="mascota" onerror="this.remove()">
-      <div><h1>Feria de la Salud</h1><div class="muted small">Cuestionario para colaboradores</div></div>
-      <p class="muted">Ingresa con tu número de documento. Puedes salir y volver cuando quieras: tus respuestas se guardan solas.</p>
-      <form id="f-login" class="stack">
-        <div><label for="doc">Número de documento</label><input id="doc" inputmode="numeric" autocomplete="username" placeholder="Ej: 1020304050" required></div>
-        <div id="login-err" class="err hidden"></div>
-        <button class="full" id="b-login">Ingresar</button>
+<!-- ================= Ingreso ================= -->
+<div id="v-login" class="ingreso hidden">
+  <header class="banda">
+    <div class="contenido">
+      <span class="logo-chip"><img src="/marca/logo.png" alt="Medical"></span>
+      <img class="zero" src="/marca/mascota-presentando.png" alt="ZERO, la mascota de Medical, te da la bienvenida">
+    </div>
+  </header>
+  <main class="marco">
+    <div class="tarjeta">
+      <h1>Feria de la Salud</h1>
+      <p class="bajada">Responde 30 preguntas sobre 10 temas de salud. Puedes hacerlo por partes: cada respuesta se guarda en cuanto la marcas.</p>
+      <form id="f-login" class="stack" style="margin-top:24px" novalidate>
+        <div>
+          <label class="campo" for="doc">Número de documento</label>
+          <input id="doc" inputmode="numeric" autocomplete="username" placeholder="Ej: 1020304050" aria-describedby="login-err">
+        </div>
+        <div id="login-err" class="nota error hidden" role="alert"></div>
+        <button class="btn full" id="b-login" type="submit">Entrar</button>
       </form>
     </div>
-  </section>
+  </main>
+</div>
 
-  <!-- Lista de temas -->
-  <section id="v-temas" class="hidden stack">
-    <div class="row" style="flex-wrap:nowrap">
-      <img src="/marca/logo.png" alt="Medical" class="logo-mini" onerror="this.remove()">
-      <span class="spacer"></span>
-      <button class="sec" id="b-salir">Salir</button>
-    </div>
-    <div><h1 id="saludo"></h1><div class="muted small" id="titulo"></div></div>
-    <div class="card progreso">
-      <img src="/marca/mascota-portatil.png" alt="" class="mascota-mini" onerror="this.remove()">
-      <div class="stack" style="flex:1;min-width:0">
-      <div><b id="prog-txt"></b><div class="muted small" id="prog-temas"></div></div>
-      <div class="bar"><i id="prog-bar" style="width:0"></i></div>
-      <div id="plazo" class="small muted"></div>
+<!-- ================= Temas ================= -->
+<div id="v-temas" class="hidden">
+  <header class="banda">
+    <div class="contenido">
+      <div class="barra">
+        <span class="logo-chip"><img src="/marca/logo.png" alt="Medical"></span>
+        <span class="spacer"></span>
+        <button class="btn claro chico" id="b-salir" type="button">Salir</button>
+      </div>
+      <div class="saludo">
+        <div>
+          <h1 id="saludo"></h1>
+          <p class="sub" id="titulo"></p>
+          <div class="medidor" aria-live="polite">
+            <div class="cifras"><b id="prog-num">0</b><span id="prog-txt"></span></div>
+            <div class="pista" role="progressbar" aria-label="Preguntas respondidas" id="prog-aria" aria-valuemin="0"><i id="prog-bar" style="width:0"></i></div>
+          </div>
+        </div>
+        <img class="zero" id="zero-temas" src="/marca/mascota-portatil.png" alt="">
       </div>
     </div>
-    <div id="fin" class="okbox fin hidden"><img src="/marca/mascota-celebrando.png" alt="" onerror="this.remove()"><span>¡Terminaste todas las preguntas! Gracias por participar. Puedes cambiar respuestas mientras el cuestionario esté abierto.</span></div>
-    <div id="aviso-plazo" class="aviso hidden"></div>
-    <div>
-      <h2>Temas</h2>
-      <div class="temas" id="temas"></div>
-    </div>
-  </section>
+  </header>
+  <main class="cuerpo">
+    <p class="plazo" id="plazo">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+      <span id="plazo-txt"></span>
+    </p>
+    <div id="aviso-plazo" class="nota alerta hidden" role="status"></div>
+    <section id="fin" class="felicidades hidden" aria-live="polite">
+      <img src="/marca/mascota-celebrando.png" alt="ZERO celebrando">
+      <div>
+        <h2>¡Completaste los 10 temas!</h2>
+        <p>Gracias por participar en la Feria de la Salud. Mientras el cuestionario esté abierto puedes volver a cualquier tema y cambiar tus respuestas.</p>
+      </div>
+    </section>
+    <section>
+      <h2>Tus temas</h2>
+      <p class="muted small" style="margin-top:4px">Cada círculo tiene 3 partes, una por pregunta. Se llena a medida que respondes.</p>
+      <div class="pasaporte" id="temas"></div>
+    </section>
+  </main>
+</div>
 
-  <!-- Preguntas de un tema -->
-  <section id="v-tema" class="hidden stack">
-    <button class="link" id="b-volver">← Volver a los temas</button>
-    <div class="card">
-      <div class="muted small" id="tema-num"></div>
-      <h1 id="tema-nombre" style="margin-bottom:12px"></h1>
-      <div id="aviso-tema" class="aviso hidden" style="margin-bottom:12px"></div>
-      <div id="preguntas"></div>
+<!-- ================= Un tema ================= -->
+<div id="v-tema" class="hidden">
+  <header class="tema-top">
+    <div class="contenido" style="max-width:860px;margin:0 auto">
+      <button class="btn claro chico" id="b-volver" type="button">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+        Mis temas
+      </button>
+      <div class="de" id="tema-num" style="margin-top:10px"></div>
+      <h1 id="tema-nombre"></h1>
+      <div class="puntos" id="puntos" aria-hidden="true"></div>
     </div>
-    <div class="row">
-      <button class="sec" id="b-ant">← Anterior</button>
-      <span class="spacer"></span>
-      <button id="b-sig">Siguiente tema →</button>
-    </div>
-  </section>
+  </header>
+  <main class="cuerpo">
+    <div id="aviso-tema" class="nota alerta hidden" role="status"></div>
+    <form id="preguntas" onsubmit="return false"></form>
+    <nav class="navegacion" aria-label="Cambiar de tema">
+      <button class="btn sec" id="b-ant" type="button">Tema anterior</button>
+      <button class="btn" id="b-sig" type="button">Siguiente tema</button>
+    </nav>
+  </main>
+</div>
 
-  <div id="cargando" class="muted" style="text-align:center;margin-top:20vh">Cargando…</div>
-</main>
-<div id="red" class="estado-red hidden"></div>
+<div id="cargando" class="vacio" style="margin-top:20vh" role="status">Cargando…</div>
+<div id="red" class="toast hidden" role="status" aria-live="polite"></div>
 
 <script>
 const LS_TOKEN = 'fs_token', LS_PEND = 'fs_pendientes';
@@ -79,12 +115,13 @@ const ls = {
 let token = ls.get(LS_TOKEN);
 let datos = null;      // respuesta de /api/cuestionario
 let temaActual = 0;
-let pendientes = {};   // pregunta_id -> opcion, aún no confirmadas por el servidor
+let pendientes = {};   // pregunta_id -> opción, aún sin confirmar por el servidor
 try { pendientes = JSON.parse(ls.get(LS_PEND) || '{}') || {}; } catch { pendientes = {}; }
 
 const $ = (id) => document.getElementById(id);
 const LETRAS = 'ABCDEFGH';
 const fmt = (iso) => new Date(iso).toLocaleString('es-CO', { weekday: 'long', day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit' });
+const guardarPend = () => ls.set(LS_PEND, JSON.stringify(pendientes));
 
 function vista(id) {
   for (const v of ['v-login', 'v-temas', 'v-tema', 'cargando']) $(v).classList.toggle('hidden', v !== id);
@@ -98,10 +135,7 @@ async function api(ruta, cuerpo) {
     body: cuerpo ? JSON.stringify(cuerpo) : undefined,
   });
   const j = await r.json().catch(() => ({}));
-  if (!r.ok) {
-    const e = new Error(j.mensaje || 'Error de conexión'); e.codigo = j.error; e.status = r.status;
-    throw e;
-  }
+  if (!r.ok) { const e = new Error(j.mensaje || 'No hay conexión con el servidor.'); e.codigo = j.error; e.status = r.status; throw e; }
   return j;
 }
 
@@ -113,42 +147,61 @@ function estadoPlazo() {
   return 'abierto';
 }
 
-function contar() {
-  let r = 0, total = 0, temasOk = 0;
-  for (const t of datos.temas) {
-    const n = t.preguntas.filter((p) => p.respuesta !== null).length;
-    r += n; total += t.preguntas.length;
-    if (n === t.preguntas.length) temasOk++;
+const respondidas = (t) => t.preguntas.filter((p) => p.respuesta !== null).length;
+
+// Anillo de 3 segmentos (uno por pregunta)
+function anillo(hechas, total, completo) {
+  const r = 22, c = 2 * Math.PI * r, gap = 5, seg = c / total - gap;
+  let arcos = '';
+  for (let i = 0; i < total; i++) {
+    const color = i < hechas ? 'var(--azul)' : 'var(--cielo-2)';
+    arcos += `<circle cx="28" cy="28" r="${r}" fill="none" stroke="${color}" stroke-width="6" stroke-linecap="round"
+      stroke-dasharray="${seg} ${c - seg}" stroke-dashoffset="${-(i * (seg + gap)) - gap / 2}"/>`;
   }
-  return { r, total, temasOk };
+  const centro = completo ? '<circle cx="28" cy="28" r="15" fill="var(--azul)"/>' : '';
+  const num = completo ? '✓' : `${hechas}/${total}`;
+  return `<div class="anillo" aria-hidden="true"><svg viewBox="0 0 56 56">${centro}${arcos}</svg><span class="num">${num}</span></div>`;
 }
 
 function pintarTemas() {
-  const { r, total, temasOk } = contar();
+  let r = 0, total = 0, completos = 0;
+  for (const t of datos.temas) { const n = respondidas(t); r += n; total += t.preguntas.length; if (n === t.preguntas.length) completos++; }
   $('saludo').textContent = 'Hola, ' + (datos.nombre || '').split(' ')[0];
-  $('titulo').textContent = datos.titulo;
-  $('prog-txt').textContent = `${r} de ${total} preguntas respondidas`;
-  $('prog-temas').textContent = `${temasOk} de ${datos.temas.length} temas completos`;
-  $('prog-bar').style.width = (total ? (100 * r / total) : 0) + '%';
-  $('fin').classList.toggle('hidden', r < total || total === 0);
+  $('titulo').textContent = `${completos} de ${datos.temas.length} temas completos`;
+  $('prog-num').textContent = r;
+  $('prog-txt').textContent = `de ${total} preguntas respondidas`;
+  $('prog-bar').style.width = (total ? 100 * r / total : 0) + '%';
+  $('prog-aria').setAttribute('aria-valuemax', total); $('prog-aria').setAttribute('aria-valuenow', r);
+  const terminado = total > 0 && r === total;
+  $('fin').classList.toggle('hidden', !terminado);
+  $('zero-temas').src = terminado ? '/marca/mascota-tapabocas-ok.png' : '/marca/mascota-portatil.png';
+
   const est = estadoPlazo();
-  $('plazo').textContent = est === 'antes' ? `Abre el ${fmt(datos.inicio)}` : `Tienes hasta el ${fmt(datos.cierre)}`;
+  $('plazo-txt').textContent = est === 'antes' ? `Abre el ${fmt(datos.inicio)}` : est === 'cerrado' ? `Cerró el ${fmt(datos.cierre)}` : `Tienes hasta el ${fmt(datos.cierre)}`;
   const av = $('aviso-plazo');
   av.classList.toggle('hidden', est === 'abierto');
-  av.textContent = est === 'antes' ? 'El cuestionario todavía no ha abierto. Puedes ver los temas, pero aún no puedes responder.'
-    : 'El plazo terminó. Puedes ver tus respuestas, pero ya no se pueden cambiar.';
+  av.textContent = est === 'antes' ? 'El cuestionario todavía no ha abierto. Puedes ver los temas y volver cuando abra.'
+    : 'El plazo terminó. Puedes ver tus respuestas, pero ya no puedes cambiarlas.';
+
   const cont = $('temas');
   cont.innerHTML = '';
   datos.temas.forEach((t, i) => {
-    const n = t.preguntas.filter((p) => p.respuesta !== null).length;
+    const n = respondidas(t), tot = t.preguntas.length, ok = n === tot;
     const b = document.createElement('button');
-    b.className = 'tema' + (n === t.preguntas.length ? ' completo' : '');
-    b.innerHTML = `<b></b><div class="bar"><i style="width:${100 * n / t.preguntas.length}%"></i></div>
-      <span class="estado">${n === t.preguntas.length ? '✓ Completo' : n === 0 ? 'Sin empezar' : `${n} de ${t.preguntas.length} respondidas`}</span>`;
-    b.querySelector('b').textContent = `${i + 1}. ${t.nombre}`;
+    b.type = 'button';
+    b.className = 'sello' + (ok ? ' completo' : '');
+    b.innerHTML = `${anillo(n, tot, ok)}<div><div class="nombre"></div><div class="estado">${ok ? 'Completo' : n === 0 ? 'Sin empezar' : `Te faltan ${tot - n}`}</div></div>
+      <svg class="flecha" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>`;
+    b.querySelector('.nombre').textContent = t.nombre;
+    b.setAttribute('aria-label', `${t.nombre}: ${ok ? 'completo' : `${n} de ${tot} preguntas respondidas`}`);
     b.onclick = () => abrirTema(i);
     cont.appendChild(b);
   });
+}
+
+function pintarPuntos() {
+  const t = datos.temas[temaActual];
+  $('puntos').innerHTML = t.preguntas.map((p) => `<i class="${p.respuesta !== null ? 'si' : ''}"></i>`).join('');
 }
 
 function abrirTema(i) {
@@ -156,70 +209,81 @@ function abrirTema(i) {
   const t = datos.temas[i];
   $('tema-num').textContent = `Tema ${i + 1} de ${datos.temas.length}`;
   $('tema-nombre').textContent = t.nombre;
+  document.title = `${t.nombre} · Feria de la Salud`;
   const est = estadoPlazo();
   const av = $('aviso-tema');
   av.classList.toggle('hidden', est === 'abierto');
-  av.textContent = est === 'antes' ? 'El cuestionario todavía no ha abierto.' : 'El plazo terminó; las respuestas ya no se pueden cambiar.';
+  av.textContent = est === 'antes' ? 'El cuestionario todavía no ha abierto.' : 'El plazo terminó. Ya no puedes cambiar tus respuestas.';
   const cont = $('preguntas');
   cont.innerHTML = '';
   t.preguntas.forEach((p, k) => {
-    const d = document.createElement('div');
-    d.className = 'pregunta';
-    const en = document.createElement('div');
-    en.className = 'enun';
-    en.textContent = `${k + 1}. ${p.enunciado}`;
+    const fs = document.createElement('fieldset');
+    fs.className = 'pregunta';
+    const lg = document.createElement('legend');
+    lg.innerHTML = `<span class="n">${k + 1}.</span>`;
+    lg.append(document.createTextNode(p.enunciado));
     const ops = document.createElement('div');
     ops.className = 'opciones';
-    ops.setAttribute('role', 'radiogroup');
     const g = document.createElement('div');
     g.className = 'guardado';
-    if (p.respuesta !== null) { g.textContent = pendientes[p.id] !== undefined ? 'Pendiente por guardar…' : '✓ Guardado'; g.className = 'guardado ' + (pendientes[p.id] !== undefined ? '' : 'ok'); }
+    g.setAttribute('aria-live', 'polite');
+    if (p.respuesta !== null) marcarEstado(g, pendientes[p.id] !== undefined ? 'pendiente' : 'ok');
     p.opciones.forEach((o, idx) => {
-      const b = document.createElement('button');
-      b.className = 'opcion' + (p.respuesta === idx ? ' sel' : '');
-      b.setAttribute('role', 'radio');
-      b.setAttribute('aria-checked', p.respuesta === idx);
-      b.disabled = est !== 'abierto';
-      b.innerHTML = `<span class="letra">${LETRAS[idx]}</span><span></span>`;
-      b.lastChild.textContent = o;
-      b.onclick = () => responder(p, idx, ops, g);
-      ops.appendChild(b);
+      const lab = document.createElement('label');
+      lab.className = 'opcion';
+      const inp = document.createElement('input');
+      inp.type = 'radio'; inp.name = 'p' + p.id; inp.value = idx;
+      inp.checked = p.respuesta === idx;
+      inp.disabled = est !== 'abierto';
+      inp.onchange = () => responder(p, idx, g);
+      const sp = document.createElement('span');
+      sp.dataset.letra = LETRAS[idx];
+      sp.textContent = o;
+      lab.append(inp, sp);
+      ops.appendChild(lab);
     });
-    d.append(en, ops, g);
-    cont.appendChild(d);
+    fs.append(lg, ops, g);
+    cont.appendChild(fs);
   });
+  pintarPuntos();
   $('b-ant').disabled = i === 0;
-  $('b-sig').textContent = i === datos.temas.length - 1 ? 'Ver mis temas' : 'Siguiente tema →';
+  $('b-sig').textContent = i === datos.temas.length - 1 ? 'Ver mis temas' : 'Siguiente tema';
   vista('v-tema');
 }
 
-async function responder(p, idx, ops, g) {
+function marcarEstado(g, estado, msg) {
+  const txt = { ok: 'Respuesta guardada', guardando: 'Guardando…', pendiente: 'Sin conexión. Se guardará cuando vuelva el internet.', mal: msg || 'No se pudo guardar.' }[estado];
+  g.className = 'guardado ' + (estado === 'ok' ? 'ok' : estado === 'mal' || estado === 'pendiente' ? 'mal' : '');
+  g.innerHTML = estado === 'ok' ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>' : '';
+  g.append(document.createTextNode(txt));
+}
+
+async function responder(p, idx, g) {
   p.respuesta = idx;
-  [...ops.children].forEach((b, k) => { b.classList.toggle('sel', k === idx); b.setAttribute('aria-checked', k === idx); });
-  pendientes[p.id] = idx;
-  ls.set(LS_PEND, JSON.stringify(pendientes));
-  g.className = 'guardado'; g.textContent = 'Guardando…';
+  pendientes[p.id] = idx; guardarPend();
+  pintarPuntos();
+  marcarEstado(g, 'guardando');
   const ok = await enviar(p.id, idx);
   if (pendientes[p.id] !== undefined && pendientes[p.id] !== idx) return; // hubo un clic más reciente
-  if (ok === true) { g.className = 'guardado ok'; g.textContent = '✓ Guardado'; }
-  else if (ok === 'fatal') { g.className = 'guardado mal'; g.textContent = 'No se pudo guardar.'; }
-  else { g.className = 'guardado mal'; g.textContent = 'Sin conexión. Se guardará automáticamente al reconectar.'; programarReintento(); }
+  if (ok === true) marcarEstado(g, 'ok');
+  else if (ok === 'fatal') marcarEstado(g, 'mal');
+  else { marcarEstado(g, 'pendiente'); programarReintento(); }
 }
 
 async function enviar(id, idx) {
   try {
     await api('/api/respuesta', { pregunta_id: Number(id), opcion: idx });
-    if (pendientes[id] === idx) { delete pendientes[id]; ls.set(LS_PEND, JSON.stringify(pendientes)); }
+    if (pendientes[id] === idx) { delete pendientes[id]; guardarPend(); }
     ocultarRed();
     return true;
   } catch (e) {
     if (e.status === 401) { sesionVencida(); return 'fatal'; }
     if (e.codigo === 'CERRADO' || e.codigo === 'NO_HA_INICIADO') {
-      delete pendientes[id]; ls.set(LS_PEND, JSON.stringify(pendientes));
+      delete pendientes[id]; guardarPend();
       mostrarRed(e.message); setTimeout(cargar, 1500); return 'fatal';
     }
-    if (e.status && e.status < 500) { delete pendientes[id]; ls.set(LS_PEND, JSON.stringify(pendientes)); mostrarRed(e.message); return 'fatal'; }
-    mostrarRed('Sin conexión: tus respuestas se guardarán al reconectar');
+    if (e.status && e.status < 500) { delete pendientes[id]; guardarPend(); mostrarRed(e.message); return 'fatal'; }
+    mostrarRed('Sin conexión. Tus respuestas se guardarán cuando vuelva el internet.');
     return false;
   }
 }
@@ -245,10 +309,11 @@ window.addEventListener('online', () => vaciarPendientes());
 function mostrarRed(t) { $('red').textContent = t; $('red').classList.remove('hidden'); }
 function ocultarRed() { $('red').classList.add('hidden'); }
 
+function errorLogin(t) { $('login-err').textContent = t; $('login-err').classList.toggle('hidden', !t); }
+
 function sesionVencida() {
   token = null; ls.del(LS_TOKEN);
-  $('login-err').textContent = 'Tu sesión terminó. Ingresa de nuevo; tus respuestas siguen guardadas.';
-  $('login-err').classList.remove('hidden');
+  errorLogin('Tu sesión terminó. Entra de nuevo: tus respuestas siguen guardadas.');
   vista('v-login');
 }
 
@@ -259,9 +324,10 @@ async function cargar() {
     const t0 = Date.now();
     datos = await api('/api/cuestionario');
     datos._desfase = new Date(datos.ahora).getTime() - (t0 + Date.now()) / 2;
-    // Respuestas que quedaron pendientes en este dispositivo se muestran y se reenvían
+    // Respuestas que quedaron pendientes en este dispositivo: se muestran y se reenvían
     for (const t of datos.temas) for (const p of t.preguntas) if (pendientes[p.id] !== undefined) p.respuesta = pendientes[p.id];
     if (Object.keys(pendientes).length) vaciarPendientes().then(() => Object.keys(pendientes).length && programarReintento());
+    document.title = 'Feria de la Salud · Medical';
     pintarTemas();
     vista('v-temas');
   } catch (e) {
@@ -272,19 +338,20 @@ async function cargar() {
 
 $('f-login').onsubmit = async (ev) => {
   ev.preventDefault();
-  const b = $('b-login'); b.disabled = true; b.textContent = 'Ingresando…';
-  $('login-err').classList.add('hidden');
+  const doc = $('doc').value.trim();
+  if (!doc) { errorLogin('Escribe tu número de documento.'); $('doc').focus(); return; }
+  const b = $('b-login'); b.disabled = true; b.textContent = 'Entrando…';
+  errorLogin('');
   try {
-    const r = await api('/api/ingresar', { documento: $('doc').value });
-    const doc = $('doc').value.trim();
-    if (ls.get('fs_dueno') !== doc) { pendientes = {}; ls.del(LS_PEND); }  // pendientes de otra persona en este equipo
+    const r = await api('/api/ingresar', { documento: doc });
+    if (ls.get('fs_dueno') !== doc) { pendientes = {}; ls.del(LS_PEND); } // pendientes de otra persona en este equipo
     ls.set('fs_dueno', doc);
     token = r.token; ls.set(LS_TOKEN, token);
+    $('doc').value = '';
     await cargar();
   } catch (e) {
-    $('login-err').textContent = e.message || 'No se pudo ingresar';
-    $('login-err').classList.remove('hidden');
-  } finally { b.disabled = false; b.textContent = 'Ingresar'; }
+    errorLogin(e.message); $('doc').focus();
+  } finally { b.disabled = false; b.textContent = 'Entrar'; }
 };
 $('b-salir').onclick = async () => {
   if (Object.keys(pendientes).length) await vaciarPendientes();
@@ -292,11 +359,11 @@ $('b-salir').onclick = async () => {
   token = null; ls.del(LS_TOKEN); datos = null;
   vista('v-login');
 };
-$('b-volver').onclick = () => { pintarTemas(); vista('v-temas'); };
+$('b-volver').onclick = () => { document.title = 'Feria de la Salud · Medical'; pintarTemas(); vista('v-temas'); };
 $('b-ant').onclick = () => temaActual > 0 && abrirTema(temaActual - 1);
 $('b-sig').onclick = () => {
   if (temaActual < datos.temas.length - 1) abrirTema(temaActual + 1);
-  else { pintarTemas(); vista('v-temas'); }
+  else { document.title = 'Feria de la Salud · Medical'; pintarTemas(); vista('v-temas'); }
 };
 
 cargar();

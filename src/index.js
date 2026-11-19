@@ -3,8 +3,6 @@
 
 const SESION_COLAB_DIAS = 7;
 const SESION_ADMIN_HORAS = 12;
-const MAX_INTENTOS = 5;
-const BLOQUEO_MIN = 15;
 
 class HttpError extends Error {
   constructor(status, codigo, mensaje) { super(mensaje); this.status = status; this.codigo = codigo; }
@@ -34,10 +32,6 @@ function igual(a, b) {
   for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return r === 0;
 }
-function pinAleatorio() {
-  const n = crypto.getRandomValues(new Uint32Array(1))[0] % 10000;
-  return String(n).padStart(4, '0');
-}
 const limpiar = (v) => (v === undefined || v === null ? '' : String(v).trim());
 const limpiarDoc = (v) => limpiar(v).replace(/[.,\s-]/g, '');
 
@@ -63,26 +57,14 @@ async function config(env) {
 // ---------------------------------------------------------------- colaborador
 
 async function ingresar(req, env) {
-  const { documento, pin } = await leerJson(req);
+  const { documento } = await leerJson(req);
   const doc = limpiarDoc(documento);
-  const p = limpiar(pin);
-  if (!doc || !p) throw new HttpError(400, 'DATOS', 'Escribe tu documento y tu PIN');
-  const c = await env.DB.prepare('SELECT * FROM colaboradores WHERE documento = ?').bind(doc).first();
-  if (!c) throw new HttpError(401, 'CREDENCIALES', 'Documento o PIN incorrecto');
-  if (c.bloqueado_hasta && c.bloqueado_hasta > ahora()) {
-    throw new HttpError(429, 'BLOQUEADO', `Demasiados intentos. Intenta de nuevo en ${BLOQUEO_MIN} minutos o pide ayuda al organizador.`);
-  }
-  const h = await hashClave(c.pin_salt, p);
-  if (!igual(h, c.pin_hash)) {
-    const intentos = c.intentos_fallidos + 1;
-    await env.DB.prepare('UPDATE colaboradores SET intentos_fallidos = ?, bloqueado_hasta = ? WHERE id = ?')
-      .bind(intentos >= MAX_INTENTOS ? 0 : intentos, intentos >= MAX_INTENTOS ? masMs(BLOQUEO_MIN * 60e3) : null, c.id)
-      .run();
-    throw new HttpError(401, 'CREDENCIALES', 'Documento o PIN incorrecto');
-  }
+  if (!doc) throw new HttpError(400, 'DATOS', 'Escribe tu número de documento');
+  const c = await env.DB.prepare('SELECT id, nombre FROM colaboradores WHERE documento = ?').bind(doc).first();
+  if (!c) throw new HttpError(401, 'NO_REGISTRADO', 'Ese documento no está registrado. Revisa el número o comunícate con el organizador.');
   const token = aleatorioHex(24);
   await env.DB.batch([
-    env.DB.prepare('UPDATE colaboradores SET intentos_fallidos = 0, bloqueado_hasta = NULL, ultimo_ingreso = ? WHERE id = ?').bind(ahora(), c.id),
+    env.DB.prepare('UPDATE colaboradores SET ultimo_ingreso = ? WHERE id = ?').bind(ahora(), c.id),
     env.DB.prepare('DELETE FROM sesiones WHERE colaborador_id = ? AND expira < ?').bind(c.id, ahora()),
     env.DB.prepare('INSERT INTO sesiones (token, colaborador_id, es_admin, expira) VALUES (?, ?, 0, ?)')
       .bind(token, c.id, masMs(SESION_COLAB_DIAS * 864e5)),
@@ -193,60 +175,40 @@ async function adminPlazo(req, env) {
   return json({ ok: true });
 }
 
-// Carga masiva: [{documento, nombre, area, pin?}]. Crea los nuevos (con PIN generado si no trae)
-// y actualiza nombre/área de los existentes. Devuelve los PIN asignados.
+// Carga masiva: [{documento, nombre, area}]. Crea los nuevos y actualiza nombre/área de los existentes.
 async function adminCargarColaboradores(req, env) {
   await sesion(req, env, true);
   const { filas } = await leerJson(req);
   if (!Array.isArray(filas) || filas.length === 0) throw new HttpError(400, 'DATOS', 'No llegaron filas');
   if (filas.length > 500) throw new HttpError(400, 'DATOS', 'Máximo 500 filas por envío');
-
-  const existentes = new Set((await env.DB.prepare('SELECT documento FROM colaboradores').all()).results.map((r) => r.documento));
   const stmts = [];
-  const pines = [];
   const vistos = new Set();
-  let nuevos = 0, actualizados = 0, omitidos = 0;
+  let validas = 0, omitidos = 0;
   for (const f of filas) {
     const doc = limpiarDoc(f.documento);
     const nombre = limpiar(f.nombre);
     const area = limpiar(f.area) || null;
-    let pin = limpiar(f.pin);
     if (!doc || !nombre || vistos.has(doc)) { omitidos++; continue; }
     vistos.add(doc);
-    if (existentes.has(doc)) {
-      if (pin) {
-        const salt = aleatorioHex(8);
-        stmts.push(env.DB.prepare('UPDATE colaboradores SET nombre = ?, area = ?, pin_salt = ?, pin_hash = ? WHERE documento = ?')
-          .bind(nombre, area, salt, await hashClave(salt, pin), doc));
-        pines.push({ documento: doc, nombre, area: area || '', pin });
-      } else {
-        stmts.push(env.DB.prepare('UPDATE colaboradores SET nombre = ?, area = ? WHERE documento = ?').bind(nombre, area, doc));
-      }
-      actualizados++;
-    } else {
-      pin = pin || pinAleatorio();
-      const salt = aleatorioHex(8);
-      stmts.push(env.DB.prepare('INSERT INTO colaboradores (documento, nombre, area, pin_salt, pin_hash) VALUES (?, ?, ?, ?, ?)')
-        .bind(doc, nombre, area, salt, await hashClave(salt, pin)));
-      pines.push({ documento: doc, nombre, area: area || '', pin });
-      nuevos++;
-    }
+    validas++;
+    stmts.push(env.DB.prepare(
+      `INSERT INTO colaboradores (documento, nombre, area, pin_salt, pin_hash) VALUES (?, ?, ?, '', '')
+       ON CONFLICT (documento) DO UPDATE SET nombre = excluded.nombre, area = excluded.area`
+    ).bind(doc, nombre, area));
   }
+  const antes = (await env.DB.prepare('SELECT COUNT(*) AS n FROM colaboradores').first()).n;
   for (let i = 0; i < stmts.length; i += 100) await env.DB.batch(stmts.slice(i, i + 100));
-  return json({ nuevos, actualizados, omitidos, pines });
+  const despues = (await env.DB.prepare('SELECT COUNT(*) AS n FROM colaboradores').first()).n;
+  const nuevos = despues - antes;
+  return json({ nuevos, actualizados: validas - nuevos, omitidos });
 }
 
-async function adminReiniciarPin(req, env) {
+async function adminEliminarColaborador(req, env) {
   await sesion(req, env, true);
   const { documento } = await leerJson(req);
-  const doc = limpiarDoc(documento);
-  const pin = pinAleatorio();
-  const salt = aleatorioHex(8);
-  const r = await env.DB.prepare('UPDATE colaboradores SET pin_salt = ?, pin_hash = ?, intentos_fallidos = 0, bloqueado_hasta = NULL WHERE documento = ?')
-    .bind(salt, await hashClave(salt, pin), doc).run();
+  const r = await env.DB.prepare('DELETE FROM colaboradores WHERE documento = ?').bind(limpiarDoc(documento)).run();
   if (!r.meta.changes) throw new HttpError(404, 'NO_EXISTE', 'No existe un colaborador con ese documento');
-  await env.DB.prepare('DELETE FROM sesiones WHERE colaborador_id = (SELECT id FROM colaboradores WHERE documento = ?)').bind(doc).run();
-  return json({ documento: doc, pin });
+  return json({ ok: true });
 }
 
 async function adminCambiarClave(req, env) {
@@ -322,7 +284,7 @@ const rutas = {
   'GET /api/admin/reporte': adminReporte,
   'POST /api/admin/plazo': adminPlazo,
   'POST /api/admin/colaboradores': adminCargarColaboradores,
-  'POST /api/admin/reiniciar-pin': adminReiniciarPin,
+  'POST /api/admin/eliminar-colaborador': adminEliminarColaborador,
   'POST /api/admin/clave': adminCambiarClave,
   'GET /api/admin/preguntas': adminPreguntas,
   'POST /api/admin/preguntas': adminCargarPreguntas,

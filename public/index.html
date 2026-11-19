@@ -5,19 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Cuestionario Feria de la Salud</title>
 <link rel="stylesheet" href="/estilos.css">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🩺</text></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💙</text></svg>">
 </head>
 <body>
 <main class="wrap">
 
   <!-- Ingreso -->
   <section id="v-login" class="hidden">
-    <div class="card stack" style="max-width:420px;margin:8vh auto 0">
-      <div class="row"><span class="logo">🩺</span><div><h1>Feria de la Salud</h1><div class="muted small">Cuestionario para colaboradores</div></div></div>
-      <p class="muted">Ingresa con tu número de documento y el PIN que te entregaron. Puedes salir y volver cuando quieras: tus respuestas se guardan solas.</p>
+    <div class="card stack login-card">
+      <div class="marca"><img src="/marca/logo.png" alt="Medical" class="logo-img" onerror="this.remove()"></div>
+      <img src="/marca/mascota.png" alt="" class="mascota" onerror="this.remove()">
+      <div><h1>Feria de la Salud</h1><div class="muted small">Cuestionario para colaboradores</div></div>
+      <p class="muted">Ingresa con tu número de documento. Puedes salir y volver cuando quieras: tus respuestas se guardan solas.</p>
       <form id="f-login" class="stack">
-        <div><label for="doc">Número de documento</label><input id="doc" inputmode="numeric" autocomplete="username" required></div>
-        <div><label for="pin">PIN</label><input id="pin" type="password" inputmode="numeric" autocomplete="current-password" maxlength="8" required></div>
+        <div><label for="doc">Número de documento</label><input id="doc" inputmode="numeric" autocomplete="username" placeholder="Ej: 1020304050" required></div>
         <div id="login-err" class="err hidden"></div>
         <button class="full" id="b-login">Ingresar</button>
       </form>
@@ -26,17 +27,18 @@
 
   <!-- Lista de temas -->
   <section id="v-temas" class="hidden stack">
-    <div class="row">
-      <div><h1 id="saludo"></h1><div class="muted small" id="titulo"></div></div>
+    <div class="row" style="flex-wrap:nowrap">
+      <img src="/marca/logo.png" alt="Medical" class="logo-mini" onerror="this.remove()">
       <span class="spacer"></span>
       <button class="sec" id="b-salir">Salir</button>
     </div>
+    <div><h1 id="saludo"></h1><div class="muted small" id="titulo"></div></div>
     <div class="card stack">
       <div class="row"><b id="prog-txt"></b><span class="spacer"></span><span class="muted small" id="prog-temas"></span></div>
       <div class="bar"><i id="prog-bar" style="width:0"></i></div>
       <div id="plazo" class="small muted"></div>
     </div>
-    <div id="fin" class="okbox hidden">¡Terminaste las 30 preguntas! Gracias por participar. Puedes cambiar respuestas mientras el cuestionario esté abierto.</div>
+    <div id="fin" class="okbox fin hidden"><img src="/marca/mascota.png" alt="" onerror="this.remove()"><span>¡Terminaste todas las preguntas! Gracias por participar. Puedes cambiar respuestas mientras el cuestionario esté abierto.</span></div>
     <div id="aviso-plazo" class="aviso hidden"></div>
     <div>
       <h2>Temas</h2>
@@ -270,12 +272,11 @@ $('f-login').onsubmit = async (ev) => {
   const b = $('b-login'); b.disabled = true; b.textContent = 'Ingresando…';
   $('login-err').classList.add('hidden');
   try {
-    const r = await api('/api/ingresar', { documento: $('doc').value, pin: $('pin').value });
+    const r = await api('/api/ingresar', { documento: $('doc').value });
     const doc = $('doc').value.trim();
     if (ls.get('fs_dueno') !== doc) { pendientes = {}; ls.del(LS_PEND); }  // pendientes de otra persona en este equipo
     ls.set('fs_dueno', doc);
     token = r.token; ls.set(LS_TOKEN, token);
-    $('pin').value = '';
     await cargar();
   } catch (e) {
     $('login-err').textContent = e.message || 'No se pudo ingresar';

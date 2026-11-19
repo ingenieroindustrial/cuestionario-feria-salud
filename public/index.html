@@ -14,7 +14,7 @@
   <section id="v-login" class="hidden">
     <div class="card stack login-card">
       <div class="marca"><img src="/marca/logo.png" alt="Medical" class="logo-img" onerror="this.remove()"></div>
-      <img src="/marca/mascota.png" alt="" class="mascota" onerror="this.remove()">
+      <img src="/marca/mascota-presentando.png" alt="ZERO, la mascota" class="mascota" onerror="this.remove()">
       <div><h1>Feria de la Salud</h1><div class="muted small">Cuestionario para colaboradores</div></div>
       <p class="muted">Ingresa con tu número de documento. Puedes salir y volver cuando quieras: tus respuestas se guardan solas.</p>
       <form id="f-login" class="stack">
@@ -33,12 +33,15 @@
       <button class="sec" id="b-salir">Salir</button>
     </div>
     <div><h1 id="saludo"></h1><div class="muted small" id="titulo"></div></div>
-    <div class="card stack">
-      <div class="row"><b id="prog-txt"></b><span class="spacer"></span><span class="muted small" id="prog-temas"></span></div>
+    <div class="card progreso">
+      <img src="/marca/mascota-portatil.png" alt="" class="mascota-mini" onerror="this.remove()">
+      <div class="stack" style="flex:1;min-width:0">
+      <div><b id="prog-txt"></b><div class="muted small" id="prog-temas"></div></div>
       <div class="bar"><i id="prog-bar" style="width:0"></i></div>
       <div id="plazo" class="small muted"></div>
+      </div>
     </div>
-    <div id="fin" class="okbox fin hidden"><img src="/marca/mascota.png" alt="" onerror="this.remove()"><span>¡Terminaste todas las preguntas! Gracias por participar. Puedes cambiar respuestas mientras el cuestionario esté abierto.</span></div>
+    <div id="fin" class="okbox fin hidden"><img src="/marca/mascota-celebrando.png" alt="" onerror="this.remove()"><span>¡Terminaste todas las preguntas! Gracias por participar. Puedes cambiar respuestas mientras el cuestionario esté abierto.</span></div>
     <div id="aviso-plazo" class="aviso hidden"></div>
     <div>
       <h2>Temas</h2>

@@ -559,6 +559,27 @@ const LETRA = 'ABCDEFGH';
 const horaCol = (iso) => (iso ? new Date(new Date(iso).getTime() - 5 * 36e5).toISOString().slice(0, 19).replace('T', ' ') : null);
 const pctBI = (a, b) => (b ? Math.round((1000 * a) / b) / 10 : null);
 
+// Vista datos_colaboradores (igual a sql/10_vista_datos_colaboradores.sql)
+const VISTA_DATOS_SQL = `CREATE VIEW IF NOT EXISTS datos_colaboradores AS
+SELECT
+  c.documento AS identificacion,
+  c.nombres,
+  c.apellidos,
+  c.celular,
+  CASE WHEN c.cumple_mes IS NULL THEN NULL ELSE c.cumple_dia || ' de ' || CASE c.cumple_mes
+    WHEN 1 THEN 'enero' WHEN 2 THEN 'febrero' WHEN 3 THEN 'marzo' WHEN 4 THEN 'abril' WHEN 5 THEN 'mayo' WHEN 6 THEN 'junio'
+    WHEN 7 THEN 'julio' WHEN 8 THEN 'agosto' WHEN 9 THEN 'septiembre' WHEN 10 THEN 'octubre' WHEN 11 THEN 'noviembre' ELSE 'diciembre' END END AS cumpleanos,
+  c.cumple_mes,
+  c.cumple_dia,
+  c.cargo,
+  c.servicio,
+  c.sede,
+  CASE WHEN c.autorizacion_fecha IS NOT NULL THEN 'Sí' ELSE 'No' END AS autorizo_tratamiento,
+  c.autorizacion_version AS version_aviso,
+  strftime('%Y-%m-%d %H:%M', c.autorizacion_fecha, '-5 hours') AS fecha_autorizacion,
+  strftime('%Y-%m-%d %H:%M', c.datos_actualizados, '-5 hours') AS datos_actualizados
+FROM colaboradores c`;
+
 async function resumenPor(env, col, vacio) {
   const r = await env.DB.prepare(
     `SELECT COALESCE(NULLIF(c.${col}, ''), '${vacio}') AS ${col}, COUNT(*) AS colaboradores,
@@ -789,6 +810,24 @@ const TABLAS_BI = {
   resumen_sede: {
     desc: 'Por sede: participación y % de aprobación',
     async leer(env) { return resumenPor(env, 'sede', 'Sin sede'); },
+  },
+  datos_colaboradores: {
+    desc: 'Datos actualizados de cada colaborador (la misma tabla datos_colaboradores de D1)',
+    async leer(env, desde) {
+      const ids = await env.DB.prepare('SELECT id, documento FROM colaboradores WHERE id > ? ORDER BY id LIMIT ?').bind(desde, BI_LOTE).all();
+      if (!ids.results.length) return { filas: [], siguiente: null };
+      const ultimo = ids.results[ids.results.length - 1].id;
+      const consulta = () => env.DB.prepare(
+        'SELECT d.* FROM datos_colaboradores d JOIN colaboradores c ON c.documento = d.identificacion WHERE c.id > ? AND c.id <= ? ORDER BY c.id'
+      ).bind(desde, ultimo).all();
+      let r;
+      try { r = await consulta(); } catch (e) {
+        if (!/no such table/i.test(String(e.message))) throw e;
+        await env.DB.prepare(VISTA_DATOS_SQL).run(); // la vista se crea sola la primera vez si la migración 10 no se corrió
+        r = await consulta();
+      }
+      return { filas: r.results, siguiente: ids.results.length === BI_LOTE ? ultimo : null };
+    },
   },
   autorizaciones: {
     desc: 'Autorizaciones de tratamiento de datos otorgadas (prueba)',

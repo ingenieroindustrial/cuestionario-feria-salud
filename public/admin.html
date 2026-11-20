@@ -52,6 +52,7 @@
       <nav class="pestanas" role="tablist" id="tabs">
         <button role="tab" data-t="avance" aria-selected="true">Avance</button>
         <button role="tab" data-t="colab" aria-selected="false">Colaboradores</button>
+        <button role="tab" data-t="datos" aria-selected="false">Datos actualizados</button>
         <button role="tab" data-t="preg" aria-selected="false">Preguntas</button>
         <button role="tab" data-t="bi" aria-selected="false">Power BI</button>
         <button role="tab" data-t="conf" aria-selected="false">Configuración</button>
@@ -95,6 +96,30 @@
         </div>
         <div class="muted small" id="conteo"></div>
         <div class="tabla"><table id="tabla"></table></div>
+      </div>
+    </section>
+
+    <!-- ---------- DATOS ACTUALIZADOS ---------- -->
+    <section data-p="datos" class="stack hidden">
+      <div class="panel">
+        <div class="panel-cab">
+          <h2>Datos actualizados de colaboradores</h2>
+          <button class="btn" id="b-export-datos" type="button">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M12 4v11m0 0l-4-4m4 4l4-4M5 19h14"/></svg>
+            Descargar Excel
+          </button>
+        </div>
+        <p class="muted" id="datos-resumen"></p>
+        <div class="row">
+          <input id="buscar-d" type="search" placeholder="Buscar por nombre, identificación, cargo, servicio o sede" aria-label="Buscar en los datos" style="flex:2;min-width:220px">
+          <select id="f-datos" aria-label="Filtrar por estado de los datos" style="flex:1;min-width:180px">
+            <option value="">Todos</option><option value="si">Datos al día</option><option value="no">Pendientes de actualizar</option>
+          </select>
+          <select id="f-sede" aria-label="Filtrar por sede" style="flex:1;min-width:160px"></select>
+        </div>
+        <p class="small muted" id="conteo-d"></p>
+        <div class="tabla"><table id="tabla-d"></table></div>
+        <p class="small muted">Contienen datos personales: compártelos solo con quien los necesite para las finalidades autorizadas.</p>
       </div>
     </section>
 
@@ -345,6 +370,7 @@ function pintar() {
   fa.value = prev;
   $('areas').innerHTML = areas.map((a) => `<option value="${esc(a)}">`).join('');
   pintarTabla();
+  pintarDatos();
   pintarColaboradores();
   pintarPreguntas();
   pintarBI();
@@ -440,6 +466,42 @@ $('b-abrir-excel').onclick = () => {
   $('b-abrir-excel').setAttribute('aria-expanded', abierto);
 };
 
+// ------------------------------------------------ Datos actualizados
+const filaDatos = (c) => ({
+  'Identificación': c.documento, Nombres: c.nombres, Apellidos: c.apellidos, 'Nombre completo': c.nombre, Celular: c.celular,
+  'Cumpleaños': c.cumple, Cargo: c.cargo, Servicio: c.servicio, Sede: c.sede, 'Área': c.area,
+  'Datos al día': c.datos_al_dia ? 'Sí' : 'No', 'Datos actualizados el': c.datos_actualizados ? new Date(c.datos_actualizados) : '',
+  'Autorizó tratamiento de datos': c.autorizacion_fecha ? 'Sí' : 'No', 'Fecha de autorización': c.autorizacion_fecha ? new Date(c.autorizacion_fecha) : '',
+  'Versión del aviso aceptado': c.autorizacion_version, 'Mes de cumpleaños': c.cumple_mes || '', 'Día de cumpleaños': c.cumple_dia || '',
+});
+function listaDatos() {
+  const q = $('buscar-d').value.trim().toLowerCase(), f = $('f-datos').value, sd = $('f-sede').value;
+  return rep.colaboradores.filter((c) => (!f || (f === 'si') === c.datos_al_dia) && (!sd || c.sede === sd)
+    && (!q || [c.nombre, c.documento, c.cargo, c.servicio, c.sede, c.celular].some((x) => (x || '').toLowerCase().includes(q))));
+}
+function pintarDatos() {
+  const cs = rep.colaboradores, al = cs.filter((c) => c.datos_al_dia).length;
+  $('datos-resumen').textContent = `${al} de ${cs.length} personas tienen sus datos al día y autorizaron su tratamiento (${pct(al, cs.length)}%).`;
+  const sedes = [...new Set(cs.map((c) => c.sede).filter(Boolean))].sort();
+  const sel = $('f-sede').value;
+  $('f-sede').innerHTML = '<option value="">Todas las sedes</option>' + sedes.map((x) => `<option${x === sel ? ' selected' : ''}>${esc(x)}</option>`).join('');
+  const lista = listaDatos().sort((a, b) => (b.datos_actualizados || '').localeCompare(a.datos_actualizados || '') || a.nombre.localeCompare(b.nombre));
+  const max = 500;
+  $('conteo-d').textContent = `${lista.length} personas` + (lista.length > max ? `. Se muestran las primeras ${max}; usa el buscador o descarga el Excel.` : '');
+  $('tabla-d').innerHTML = `<thead><tr><th>Identificación</th><th>Nombres</th><th>Apellidos</th><th>Celular</th><th>Cumpleaños</th><th>Cargo</th><th>Servicio</th><th>Sede</th><th>Autorización</th><th>Actualizó</th></tr></thead><tbody>` +
+    (lista.slice(0, max).map((c) => `<tr><td>${esc(c.documento)}</td><td>${esc(c.nombres) || '<span class="muted">' + esc(c.nombre) + '</span>'}</td><td>${esc(c.apellidos)}</td>
+      <td>${esc(c.celular)}</td><td>${esc(c.cumple)}</td><td>${esc(c.cargo)}</td><td>${esc(c.servicio)}</td><td>${esc(c.sede)}</td>
+      <td>${c.datos_al_dia ? `<span class="pill si">Autorizó</span>` : c.autorizacion_fecha ? '<span class="pill pr">Aviso anterior</span>' : '<span class="pill no">Pendiente</span>'}</td>
+      <td>${c.datos_actualizados ? fmt(c.datos_actualizados) : '<span class="muted">Aún no</span>'}</td></tr>`).join('')
+     || '<tr><td colspan="10" class="vacio">No hay personas con ese filtro.</td></tr>') + '</tbody>';
+}
+for (const id of ['buscar-d', 'f-datos', 'f-sede']) $(id).addEventListener('input', pintarDatos);
+$('b-export-datos').onclick = () => {
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(listaDatos().map(filaDatos)), 'Datos de colaboradores');
+  XLSX.writeFile(wb, `datos-colaboradores-${new Date().toISOString().slice(0, 10)}.xlsx`);
+};
+
 // ------------------------------------------------ Excel
 async function traerRespuestas() {
   const todas = [];
@@ -516,13 +578,7 @@ async function exportar() {
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(detalle), 'Respuestas por pregunta');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(porPregunta), 'Aciertos por pregunta');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(porTema), 'Cobertura por tema');
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rep.colaboradores.map((c) => ({
-      Documento: c.documento, Nombres: c.nombres, Apellidos: c.apellidos, 'Nombre completo': c.nombre, Celular: c.celular,
-      Cargo: c.cargo, Servicio: c.servicio, Sede: c.sede, 'Área': c.area, 'Cumpleaños': c.cumple, 'Mes de cumpleaños': c.cumple_mes || '', 'Día de cumpleaños': c.cumple_dia || '',
-      'Datos al día': c.datos_al_dia ? 'Sí' : 'No', 'Datos actualizados el': c.datos_actualizados ? new Date(c.datos_actualizados) : '',
-      'Autorizó tratamiento de datos': c.autorizacion_fecha ? 'Sí' : 'No', 'Fecha de autorización': c.autorizacion_fecha ? new Date(c.autorizacion_fecha) : '',
-      'Versión del aviso aceptado': c.autorizacion_version,
-    }))), 'Datos de colaboradores');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rep.colaboradores.map(filaDatos)), 'Datos de colaboradores');
     XLSX.writeFile(wb, `resultados-feria-salud-${new Date().toISOString().slice(0, 10)}.xlsx`);
   } catch (e) { $('conteo').textContent = 'No se pudo generar el Excel: ' + e.message; }
   finally { b.disabled = false; b.innerHTML = txt; }
@@ -656,6 +712,7 @@ const TABLAS_BI = [
   ['temas', 'Los temas con su ciudad', 'Tabla de dimensión'],
   ['preguntas', 'Las preguntas con sus opciones y la respuesta correcta', 'Tabla de dimensión'],
   ['colaboradores', 'Datos actualizados de cada colaborador: nombres, apellidos, celular, cargo, servicio, sede, cumpleaños, autorización y fechas', 'Tabla de dimensión, base de datos actualizada'],
+  ['datos_colaboradores', 'Identificación, nombres, apellidos, celular, cumpleaños, cargo, servicio, sede y autorización de cada persona', 'Base de datos actualizada de colaboradores'],
   ['autorizaciones', 'Cada autorización de tratamiento de datos: documento, versión del aviso y fecha', 'Prueba de las autorizaciones'],
   ['respuestas', 'Cada respuesta marcada: documento, pregunta, opción, si fue correcta y si el tema se envió', 'Detalle fino, cruces propios'],
   ['envios_tema', 'Cada tema enviado con su fecha', 'Detalle de envíos'],

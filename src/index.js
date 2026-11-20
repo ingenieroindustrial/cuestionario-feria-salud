@@ -98,8 +98,7 @@ function validarDatos(d, previo) {
 }
 
 // Lo que se muestra para revisar. Celular y cumpleaños nunca se devuelven completos: solo se indica que existen.
-async function perfilParaRevisar(env, c) {
-  const [nom, ape] = c?.nombres ? [c.nombres, c.apellidos] : partirNombre(c?.nombre || '');
+async function opcionesPerfil(env) {
   const cat = await env.DB.prepare(
     `SELECT 'cargo' AS k, cargo AS v, COUNT(*) AS n FROM colaboradores WHERE cargo IS NOT NULL GROUP BY cargo
      UNION ALL SELECT 'servicio', servicio, COUNT(*) FROM colaboradores WHERE servicio IS NOT NULL GROUP BY servicio
@@ -108,6 +107,16 @@ async function perfilParaRevisar(env, c) {
   ).all();
   const opciones = { cargo: [], servicio: [], sede: [] };
   for (const r of cat.results) opciones[r.k].push(r.v);
+  return opciones;
+}
+// Catálogo público de cargos, servicios y sedes ya escritos (no son datos personales) y versión vigente del aviso
+async function opciones(req, env) {
+  return json({ opciones: await opcionesPerfil(env), aviso_version: AVISO_VERSION });
+}
+
+async function perfilParaRevisar(env, c) {
+  const [nom, ape] = c?.nombres ? [c.nombres, c.apellidos] : partirNombre(c?.nombre || '');
+  const opciones = await opcionesPerfil(env);
   return {
     perfil: {
       nombres: nom || '', apellidos: ape || '', cargo: c?.cargo || '', servicio: c?.servicio || c?.area || '', sede: c?.sede || '',
@@ -854,6 +863,7 @@ async function adminQuitarClaveBI(req, env) {
 const rutas = {
   'POST /api/ingresar': ingresar,
   'GET /api/mis-datos': misDatos,
+  'GET /api/opciones': opciones,
   'POST /api/mis-datos': misDatos,
   'GET /api/cuestionario': miCuestionario,
   'POST /api/respuesta': guardarRespuesta,

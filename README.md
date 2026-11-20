@@ -54,8 +54,9 @@ La aprobación se calcula solo con los temas que la persona envió.
 
 ## Actualización de datos y protección de datos personales
 
-Al ingresar, cada persona escribe su número de identificación. Si sus datos no están completos o no ha aceptado la versión vigente del aviso de privacidad, la app le pide nombres, apellidos, celular, cargo, servicio, sede y día y mes de cumpleaños (no el año, por minimización), junto con la autorización de tratamiento de datos (Ley 1581 de 2012, Decreto 1377 de 2013).
+El ingreso es una sola pantalla con número de identificación, nombres, apellidos, celular, cargo, servicio, sede y día y mes de cumpleaños (no el año, por minimización), junto con la autorización de tratamiento de datos (Ley 1581 de 2012, Decreto 1377 de 2013).
 
+- Quien ya tiene sus datos al día y aceptó el aviso vigente puede entrar escribiendo solo su número.
 - La casilla de autorización nunca viene marcada. Sin ella no se guarda nada.
 - Cada autorización queda en la tabla `autorizaciones` con versión del aviso, fecha, IP y navegador, como prueba.
 - El aviso completo está en `/privacidad.html`. Si cambias su texto, sube `AVISO_VERSION` en `src/index.js` y a todos se les pedirá autorizar de nuevo.

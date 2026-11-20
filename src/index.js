@@ -56,25 +56,121 @@ async function config(env) {
 
 // ---------------------------------------------------------------- colaborador
 
+// Versión del aviso de privacidad. Si cambia el texto de /privacidad.html, súbela: a todos se les vuelve a pedir la autorización.
+const AVISO_VERSION = '2026-11-v1';
+const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+const DIAS_MES = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+// "pedro ramírez" o "PEDRO RAMÍREZ" → "Pedro Ramírez"; respeta lo que la persona escribió con mayúsculas mixtas
+function nombrePropio(v) {
+  let t = limpiar(v).replace(/\s+/g, ' ');
+  if (t === t.toLowerCase() || t === t.toUpperCase()) {
+    t = t.toLowerCase().split(' ').map((w, i) => (i > 0 && ['de', 'del', 'la', 'las', 'los', 'y', 'e'].includes(w) ? w : w.charAt(0).toUpperCase() + w.slice(1))).join(' ');
+  }
+  return t;
+}
+// Texto corto de catálogo (cargo, servicio, sede): primera letra en mayúscula para no duplicar "urgencias" / "Urgencias"
+function textoCatalogo(v) {
+  const t = limpiar(v).replace(/\s+/g, ' ');
+  if (!t) return '';
+  return t === t.toLowerCase() || t === t.toUpperCase() ? t.charAt(0).toUpperCase() + t.slice(1).toLowerCase() : t;
+}
+const perfilCompleto = (c) => !!(c && c.nombres && c.apellidos && c.celular && c.cargo && c.servicio && c.sede && c.cumple_mes && c.cumple_dia);
+const autorizacionVigente = (c) => !!(c && c.autorizacion_version === AVISO_VERSION);
+
+// Valida los datos del formulario. Si el colaborador ya tiene celular o cumpleaños, puede dejarlos vacíos para conservarlos.
+function validarDatos(d, previo) {
+  const nombres = nombrePropio(d.nombres), apellidos = nombrePropio(d.apellidos);
+  const LETRAS = /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ' .-]+$/;
+  if (nombres.length < 2 || nombres.length > 60 || !LETRAS.test(nombres)) throw new HttpError(400, 'DATOS:nombres', 'Escribe tus nombres, solo con letras.');
+  if (apellidos.length < 2 || apellidos.length > 60 || !LETRAS.test(apellidos)) throw new HttpError(400, 'DATOS:apellidos', 'Escribe tus apellidos, solo con letras.');
+  let cel = limpiar(d.celular).replace(/[\s().-]/g, '').replace(/^\+?57(?=3\d{9}$)/, '');
+  if (!cel && previo?.celular) cel = previo.celular;
+  if (!/^3\d{9}$/.test(cel)) throw new HttpError(400, 'DATOS:celular', 'Escribe un celular de 10 dígitos que empiece por 3.');
+  const cargo = textoCatalogo(d.cargo), servicio = textoCatalogo(d.servicio), sede = textoCatalogo(d.sede);
+  if (cargo.length < 2 || cargo.length > 80) throw new HttpError(400, 'DATOS:cargo', 'Escribe tu cargo.');
+  if (servicio.length < 2 || servicio.length > 80) throw new HttpError(400, 'DATOS:servicio', 'Escribe el servicio en el que trabajas.');
+  if (sede.length < 2 || sede.length > 80) throw new HttpError(400, 'DATOS:sede', 'Escribe tu sede.');
+  let mes = Number(d.cumple_mes) || 0, dia = Number(d.cumple_dia) || 0;
+  if (!mes && !dia && previo?.cumple_mes) { mes = previo.cumple_mes; dia = previo.cumple_dia; }
+  if (!(mes >= 1 && mes <= 12) || !(dia >= 1 && dia <= DIAS_MES[mes - 1])) throw new HttpError(400, 'DATOS:cumple', 'Elige el día y el mes de tu cumpleaños.');
+  return { nombres, apellidos, celular: cel, cargo, servicio, sede, cumple_mes: mes, cumple_dia: dia };
+}
+
+// Lo que se muestra para revisar. Celular y cumpleaños nunca se devuelven completos: solo se indica que existen.
+async function perfilParaRevisar(env, c) {
+  const [nom, ape] = c?.nombres ? [c.nombres, c.apellidos] : partirNombre(c?.nombre || '');
+  const cat = await env.DB.prepare(
+    `SELECT 'cargo' AS k, cargo AS v, COUNT(*) AS n FROM colaboradores WHERE cargo IS NOT NULL GROUP BY cargo
+     UNION ALL SELECT 'servicio', servicio, COUNT(*) FROM colaboradores WHERE servicio IS NOT NULL GROUP BY servicio
+     UNION ALL SELECT 'sede', sede, COUNT(*) FROM colaboradores WHERE sede IS NOT NULL GROUP BY sede
+     ORDER BY 3 DESC LIMIT 300`
+  ).all();
+  const opciones = { cargo: [], servicio: [], sede: [] };
+  for (const r of cat.results) opciones[r.k].push(r.v);
+  return {
+    perfil: {
+      nombres: nom || '', apellidos: ape || '', cargo: c?.cargo || '', servicio: c?.servicio || c?.area || '', sede: c?.sede || '',
+      celular_final: c?.celular ? c.celular.slice(-3) : null,
+      tiene_cumple: !!c?.cumple_mes,
+    },
+    opciones,
+    aviso_version: AVISO_VERSION,
+    autorizo_antes: !!c?.autorizacion_version,
+  };
+}
+// "María Fernanda López Ruiz" → ["María Fernanda", "López Ruiz"] (supuesto colombiano: dos apellidos al final)
+function partirNombre(n) {
+  const p = limpiar(n).split(/\s+/).filter(Boolean);
+  if (p.length <= 1) return [p[0] || '', ''];
+  if (p.length === 2) return [p[0], p[1]];
+  if (p.length === 3) return [p[0], p.slice(1).join(' ')];
+  return [p.slice(0, -2).join(' '), p.slice(-2).join(' ')];
+}
+
+async function guardarDatos(env, req, colabId, datos) {
+  const t = ahora();
+  await env.DB.batch([
+    env.DB.prepare(
+      `UPDATE colaboradores SET nombres = ?, apellidos = ?, nombre = ?, celular = ?, cargo = ?, servicio = ?, area = ?, sede = ?,
+              cumple_mes = ?, cumple_dia = ?, datos_actualizados = ?, autorizacion_version = ?, autorizacion_fecha = ? WHERE id = ?`
+    ).bind(datos.nombres, datos.apellidos, `${datos.nombres} ${datos.apellidos}`, datos.celular, datos.cargo, datos.servicio, datos.servicio, datos.sede,
+      datos.cumple_mes, datos.cumple_dia, t, AVISO_VERSION, t, colabId),
+    env.DB.prepare('INSERT INTO autorizaciones (colaborador_id, version, aceptada_en, ip, user_agent) VALUES (?, ?, ?, ?, ?)')
+      .bind(colabId, AVISO_VERSION, t, req.headers.get('cf-connecting-ip') || null, (req.headers.get('user-agent') || '').slice(0, 250) || null),
+  ]);
+}
+
+function exigirAutorizacion(autorizo, version) {
+  if (autorizo !== true) throw new HttpError(400, 'AUTORIZACION', 'Para guardar tus datos necesitamos tu autorización. Marca la casilla después de leer el aviso.');
+  if (version !== AVISO_VERSION) throw new HttpError(409, 'AVISO_CAMBIO', 'El aviso de privacidad cambió. Recarga la página para leer la versión vigente.');
+}
+
+// Ingreso en dos pasos:
+//  1) {documento} → si ya tiene sus datos al día y autorizó la versión vigente, entra; si no, devuelve {requiere: 'datos'}.
+//  2) {documento, datos, autorizo, version} → guarda los datos, registra la autorización y entra.
 async function ingresar(req, env) {
-  const { documento, nombre } = await leerJson(req);
+  const { documento, datos, autorizo, version } = await leerJson(req);
   const doc = limpiarDoc(documento);
-  let nom = limpiar(nombre).replace(/\s+/g, ' ');
-  // "pedro ramírez" o "PEDRO RAMÍREZ" → "Pedro Ramírez"
-  if (nom === nom.toLowerCase() || nom === nom.toUpperCase()) {
-    nom = nom.toLowerCase().split(' ').map((w, i) => (i > 0 && ['de', 'del', 'la', 'las', 'los', 'y'].includes(w) ? w : w.charAt(0).toUpperCase() + w.slice(1))).join(' ');
+  if (!doc) throw new HttpError(400, 'DATOS:documento', 'Escribe tu número de identificación.');
+  if (!/^[0-9A-Za-z]{3,20}$/.test(doc)) throw new HttpError(400, 'DATOS:documento', 'El número de identificación solo puede tener números o letras, entre 3 y 20 caracteres.');
+  let c = await env.DB.prepare('SELECT * FROM colaboradores WHERE documento = ?').bind(doc).first();
+  if (!datos) {
+    if (perfilCompleto(c) && autorizacionVigente(c)) return iniciarSesion(env, c);
+    return json({ requiere: 'datos', registrado: !!c, ...(await perfilParaRevisar(env, c)) });
   }
-  if (!doc) throw new HttpError(400, 'DATOS', 'Escribe tu número de documento');
-  if (!/^[0-9A-Za-z]{3,20}$/.test(doc)) throw new HttpError(400, 'DATOS', 'El documento solo puede tener números o letras, entre 3 y 20 caracteres.');
-  // Cualquier persona puede participar: si el documento no existe, se registra con su nombre completo.
-  let c = await env.DB.prepare('SELECT id, nombre FROM colaboradores WHERE documento = ?').bind(doc).first();
+  const limpios = validarDatos(datos, c);
+  exigirAutorizacion(autorizo, version);
   if (!c) {
-    if (nom.split(' ').filter((x) => x.length > 1).length < 2 || nom.length > 120) {
-      throw new HttpError(400, 'NOMBRE', 'Escribe tu nombre completo (nombre y apellido).');
-    }
-    await env.DB.prepare("INSERT OR IGNORE INTO colaboradores (documento, nombre, pin_salt, pin_hash) VALUES (?, ?, '', '')").bind(doc, nom).run();
-    c = await env.DB.prepare('SELECT id, nombre FROM colaboradores WHERE documento = ?').bind(doc).first();
+    await env.DB.prepare("INSERT OR IGNORE INTO colaboradores (documento, nombre, pin_salt, pin_hash) VALUES (?, ?, '', '')")
+      .bind(doc, `${limpios.nombres} ${limpios.apellidos}`).run();
+    c = await env.DB.prepare('SELECT * FROM colaboradores WHERE documento = ?').bind(doc).first();
   }
+  await guardarDatos(env, req, c.id, limpios);
+  return iniciarSesion(env, { id: c.id, nombre: `${limpios.nombres} ${limpios.apellidos}`, nombres: limpios.nombres });
+}
+
+async function iniciarSesion(env, c) {
   const token = aleatorioHex(24);
   await env.DB.batch([
     env.DB.prepare('UPDATE colaboradores SET ultimo_ingreso = ? WHERE id = ?').bind(ahora(), c.id),
@@ -82,7 +178,19 @@ async function ingresar(req, env) {
     env.DB.prepare('INSERT INTO sesiones (token, colaborador_id, es_admin, expira) VALUES (?, ?, 0, ?)')
       .bind(token, c.id, masMs(SESION_COLAB_DIAS * 864e5)),
   ]);
-  return json({ token, nombre: c.nombre });
+  return json({ token, nombre: c.nombre, nombres: c.nombres || c.nombre.split(' ')[0] });
+}
+
+// Revisar y actualizar mis datos desde dentro de la app
+async function misDatos(req, env) {
+  const s = await sesion(req, env);
+  const c = await env.DB.prepare('SELECT * FROM colaboradores WHERE id = ?').bind(s.colaborador_id).first();
+  if (req.method === 'GET') return json({ documento: c.documento, ...(await perfilParaRevisar(env, c)) });
+  const { datos, autorizo, version } = await leerJson(req);
+  const limpios = validarDatos(datos || {}, c);
+  exigirAutorizacion(autorizo, version);
+  await guardarDatos(env, req, c.id, limpios);
+  return json({ ok: true, nombre: `${limpios.nombres} ${limpios.apellidos}` });
 }
 
 async function miCuestionario(req, env) {
@@ -253,6 +361,8 @@ async function adminReporte(req, env) {
     env.DB.prepare('SELECT t.id, t.nombre, t.ciudad, COUNT(p.id) AS n FROM temas t LEFT JOIN preguntas p ON p.tema_id = t.id GROUP BY t.id ORDER BY t.orden').all(),
     env.DB.prepare(
       `SELECT c.documento AS d, c.nombre AS n, c.area AS a, c.ultimo_ingreso AS i, c.enviado_en AS e,
+              c.nombres AS nn, c.apellidos AS ap, c.celular AS cl, c.cargo AS cg, c.servicio AS sv, c.sede AS sd,
+              c.cumple_mes AS cm, c.cumple_dia AS cd, c.datos_actualizados AS da, c.autorizacion_version AS av, c.autorizacion_fecha AS af,
               (SELECT MAX(respondida) FROM respuestas WHERE colaborador_id = c.id) AS u,
               (SELECT GROUP_CONCAT(x, ',') FROM (
                  SELECT p.tema_id || ':' || COUNT(*) || ':' || SUM(r.es_correcta) AS x
@@ -263,7 +373,7 @@ async function adminReporte(req, env) {
     ).all(),
   ]);
   return json({
-    config: { titulo: cfg.titulo, inicio: cfg.inicio, cierre: cfg.cierre, bi_creada: cfg.bi_creada || null },
+    config: { titulo: cfg.titulo, inicio: cfg.inicio, cierre: cfg.cierre, bi_creada: cfg.bi_creada || null, aviso_version: AVISO_VERSION },
     temas: temas.results,
     colaboradores: colabs.results,
   });
@@ -440,6 +550,26 @@ const LETRA = 'ABCDEFGH';
 const horaCol = (iso) => (iso ? new Date(new Date(iso).getTime() - 5 * 36e5).toISOString().slice(0, 19).replace('T', ' ') : null);
 const pctBI = (a, b) => (b ? Math.round((1000 * a) / b) / 10 : null);
 
+async function resumenPor(env, col, vacio) {
+  const r = await env.DB.prepare(
+    `SELECT COALESCE(NULLIF(c.${col}, ''), '${vacio}') AS ${col}, COUNT(*) AS colaboradores,
+            SUM(CASE WHEN EXISTS (SELECT 1 FROM respuestas WHERE colaborador_id = c.id) THEN 1 ELSE 0 END) AS participaron,
+            SUM(CASE WHEN EXISTS (SELECT 1 FROM envios_tema WHERE colaborador_id = c.id) THEN 1 ELSE 0 END) AS enviaron_algun_tema,
+            SUM(CASE WHEN c.enviado_en IS NOT NULL THEN 1 ELSE 0 END) AS enviaron_los_10,
+            SUM((SELECT COUNT(*) FROM envios_tema WHERE colaborador_id = c.id)) AS temas_enviados,
+            SUM((SELECT COUNT(*) FROM respuestas r JOIN preguntas p ON p.id = r.pregunta_id JOIN envios_tema e ON e.colaborador_id = r.colaborador_id AND e.tema_id = p.tema_id WHERE r.colaborador_id = c.id)) AS respuestas_enviadas,
+            SUM((SELECT COUNT(*) FROM respuestas r JOIN preguntas p ON p.id = r.pregunta_id JOIN envios_tema e ON e.colaborador_id = r.colaborador_id AND e.tema_id = p.tema_id WHERE r.colaborador_id = c.id AND r.es_correcta = 1)) AS correctas
+     FROM colaboradores c GROUP BY 1 ORDER BY 1`
+  ).all();
+  return {
+    filas: r.results.map((x) => ({
+      ...x, porcentaje_participacion: pctBI(x.participaron, x.colaboradores), porcentaje_completaron: pctBI(x.enviaron_los_10, x.colaboradores),
+      promedio_temas_enviados: x.colaboradores ? Math.round((10 * x.temas_enviados) / x.colaboradores) / 10 : 0,
+      porcentaje_aprobacion: pctBI(x.correctas, x.respuestas_enviadas),
+    })),
+  };
+}
+
 const TABLAS_BI = {
   temas: {
     desc: 'Los 10 temas con su ciudad homenajeada',
@@ -472,10 +602,18 @@ const TABLAS_BI = {
     desc: 'Colaboradores registrados',
     async leer(env, desde) {
       const r = await env.DB.prepare(
-        'SELECT id, documento, nombre, area, creado, ultimo_ingreso, enviado_en FROM colaboradores WHERE id > ? ORDER BY id LIMIT ?'
+        `SELECT id, documento, nombre, nombres, apellidos, celular, cargo, servicio, sede, cumple_mes, cumple_dia, area, creado, ultimo_ingreso, enviado_en,
+                datos_actualizados, autorizacion_version, autorizacion_fecha FROM colaboradores WHERE id > ? ORDER BY id LIMIT ?`
       ).bind(desde, BI_LOTE).all();
       return {
-        filas: r.results.map((c) => ({ documento: c.documento, nombre: c.nombre, area: c.area, registrado: horaCol(c.creado), ultimo_ingreso: horaCol(c.ultimo_ingreso), envio_los_10_temas: horaCol(c.enviado_en) })),
+        filas: r.results.map((c) => ({
+          documento: c.documento, nombre: c.nombre, nombres: c.nombres, apellidos: c.apellidos, celular: c.celular,
+          cargo: c.cargo, servicio: c.servicio, sede: c.sede, area: c.area,
+          cumpleanos: c.cumple_mes ? `${c.cumple_dia} de ${MESES[c.cumple_mes - 1]}` : null, cumple_mes: c.cumple_mes, cumple_dia: c.cumple_dia,
+          datos_al_dia: c.autorizacion_version === AVISO_VERSION && c.datos_actualizados ? 1 : 0,
+          datos_actualizados: horaCol(c.datos_actualizados), autorizacion_version: c.autorizacion_version, autorizacion_fecha: horaCol(c.autorizacion_fecha),
+          registrado: horaCol(c.creado), ultimo_ingreso: horaCol(c.ultimo_ingreso), envio_los_10_temas: horaCol(c.enviado_en),
+        })),
         siguiente: r.results.length === BI_LOTE ? r.results[r.results.length - 1].id : null,
       };
     },
@@ -636,24 +774,22 @@ const TABLAS_BI = {
     },
   },
   resumen_area: {
-    desc: 'Por área: participación y % de aprobación',
-    async leer(env) {
+    desc: 'Por área o servicio: participación y % de aprobación',
+    async leer(env) { return resumenPor(env, 'area', 'Sin área'); },
+  },
+  resumen_sede: {
+    desc: 'Por sede: participación y % de aprobación',
+    async leer(env) { return resumenPor(env, 'sede', 'Sin sede'); },
+  },
+  autorizaciones: {
+    desc: 'Autorizaciones de tratamiento de datos otorgadas (prueba)',
+    async leer(env, desde) {
       const r = await env.DB.prepare(
-        `SELECT COALESCE(NULLIF(c.area, ''), 'Sin área') AS area, COUNT(*) AS colaboradores,
-                SUM(CASE WHEN EXISTS (SELECT 1 FROM respuestas WHERE colaborador_id = c.id) THEN 1 ELSE 0 END) AS participaron,
-                SUM(CASE WHEN EXISTS (SELECT 1 FROM envios_tema WHERE colaborador_id = c.id) THEN 1 ELSE 0 END) AS enviaron_algun_tema,
-                SUM(CASE WHEN c.enviado_en IS NOT NULL THEN 1 ELSE 0 END) AS enviaron_los_10,
-                SUM((SELECT COUNT(*) FROM envios_tema WHERE colaborador_id = c.id)) AS temas_enviados,
-                SUM((SELECT COUNT(*) FROM respuestas r JOIN preguntas p ON p.id = r.pregunta_id JOIN envios_tema e ON e.colaborador_id = r.colaborador_id AND e.tema_id = p.tema_id WHERE r.colaborador_id = c.id)) AS respuestas_enviadas,
-                SUM((SELECT COUNT(*) FROM respuestas r JOIN preguntas p ON p.id = r.pregunta_id JOIN envios_tema e ON e.colaborador_id = r.colaborador_id AND e.tema_id = p.tema_id WHERE r.colaborador_id = c.id AND r.es_correcta = 1)) AS correctas
-         FROM colaboradores c GROUP BY 1 ORDER BY 1`
-      ).all();
+        `SELECT a.id, c.documento, a.version, a.aceptada_en FROM autorizaciones a JOIN colaboradores c ON c.id = a.colaborador_id WHERE a.id > ? ORDER BY a.id LIMIT ?`
+      ).bind(desde, BI_LOTE).all();
       return {
-        filas: r.results.map((x) => ({
-          ...x, porcentaje_participacion: pctBI(x.participaron, x.colaboradores), porcentaje_completaron: pctBI(x.enviaron_los_10, x.colaboradores),
-          promedio_temas_enviados: x.colaboradores ? Math.round((10 * x.temas_enviados) / x.colaboradores) / 10 : 0,
-          porcentaje_aprobacion: pctBI(x.correctas, x.respuestas_enviadas),
-        })),
+        filas: r.results.map((x) => ({ documento: x.documento, version_aviso: x.version, aceptada_en: horaCol(x.aceptada_en) })),
+        siguiente: r.results.length === BI_LOTE ? r.results[r.results.length - 1].id : null,
       };
     },
   },
@@ -717,6 +853,8 @@ async function adminQuitarClaveBI(req, env) {
 
 const rutas = {
   'POST /api/ingresar': ingresar,
+  'GET /api/mis-datos': misDatos,
+  'POST /api/mis-datos': misDatos,
   'GET /api/cuestionario': miCuestionario,
   'POST /api/respuesta': guardarRespuesta,
   'POST /api/salir': salir,

@@ -52,6 +52,18 @@ Responden `{ tabla, filas, siguiente }`; si `siguiente` no es nulo hay más fila
 
 La aprobación se calcula solo con los temas que la persona envió.
 
+## Actualización de datos y protección de datos personales
+
+Al ingresar, cada persona escribe su número de identificación. Si sus datos no están completos o no ha aceptado la versión vigente del aviso de privacidad, la app le pide nombres, apellidos, celular, cargo, servicio, sede y día y mes de cumpleaños (no el año, por minimización), junto con la autorización de tratamiento de datos (Ley 1581 de 2012, Decreto 1377 de 2013).
+
+- La casilla de autorización nunca viene marcada. Sin ella no se guarda nada.
+- Cada autorización queda en la tabla `autorizaciones` con versión del aviso, fecha, IP y navegador, como prueba.
+- El aviso completo está en `/privacidad.html`. Si cambias su texto, sube `AVISO_VERSION` en `src/index.js` y a todos se les pedirá autorizar de nuevo.
+- Por seguridad, la app nunca vuelve a mostrar el celular ni el cumpleaños guardados: solo indica que existen.
+- Dentro de la app, el botón **Mis datos** permite revisarlos y corregirlos.
+
+**Pendiente de completar en `/privacidad.html`** (marcado en amarillo): NIT, dirección, correo y teléfono de contacto para datos personales, y el enlace a la Política de Tratamiento de Datos de la institución.
+
 ## Datos en D1
 
 Además de las tablas, hay dos vistas para consultar desde la consola de D1:

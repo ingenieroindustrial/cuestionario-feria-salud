@@ -289,6 +289,7 @@ function resumir(c) {
   return { r, n, ok, completos, faltan, errores, estado, env, envN, envOk, sinEnviar, aprob: envN ? pct(envOk, envN) : 0, aprobTotal: n ? pct(envOk, n) : 0 };
 }
 
+const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 async function cargar(silencioso) {
   if (!silencioso) vista('cargando');
   try {
@@ -298,6 +299,10 @@ async function cargar(silencioso) {
       const enviados = new Set((x.s || '').split(',').filter(Boolean).map(Number));
       const m = new Map((x.g || '').split(',').filter(Boolean).map((t) => { const [id, r, c] = t.split(':').map(Number); return [id, { r, c }]; }));
       return { documento: x.d, nombre: x.n, area: x.a || '', ultimo_ingreso: x.i, ultima_respuesta: x.u, enviado_en: x.e || null,
+        nombres: x.nn || '', apellidos: x.ap || '', celular: x.cl || '', cargo: x.cg || '', servicio: x.sv || '', sede: x.sd || '',
+        cumple: x.cm ? `${x.cd} de ${MESES[x.cm - 1]}` : '', cumple_mes: x.cm || null, cumple_dia: x.cd || null,
+        datos_actualizados: x.da || null, autorizacion_version: x.av || '', autorizacion_fecha: x.af || null,
+        datos_al_dia: !!(x.da && x.av === crudo.config.aviso_version),
         por_tema: rep.temas.map((t) => ({ r: m.get(t.id)?.r || 0, c: m.get(t.id)?.c || 0, n: t.n, env: enviados.has(t.id) })) };
     });
     rep.colaboradores.forEach((c) => (c.s = resumir(c)));
@@ -322,6 +327,7 @@ function pintar() {
     [cuenta('Envió algunos temas'), 'han enviado algunos temas', tot],
     [cuenta('En progreso'), 'respondiendo sin enviar aún', tot],
     [cuenta('No ha iniciado'), 'no han empezado', tot],
+    [cs.filter((c) => c.datos_al_dia).length, 'actualizaron sus datos y autorizaron su uso', tot],
     [(() => { const e = cs.filter((c) => c.s.env); return e.length ? Math.round(e.reduce((a, c) => a + c.s.aprob, 0) / e.length) + '%' : '–'; })(), 'aprobación promedio en temas enviados'],
   ].map(([v, l, d]) => `<div class="indicador"><div class="v">${v}</div><div class="l">${l}${d ? ` <span class="pct">${pct(v, d)}%</span>` : ''}</div></div>`).join('');
 
@@ -344,14 +350,14 @@ function pintar() {
   pintarBI();
 }
 
-const coincide = (c, q) => !q || c.nombre.toLowerCase().includes(q) || c.documento.toLowerCase().includes(q) || c.area.toLowerCase().includes(q);
+const coincide = (c, q) => !q || [c.nombre, c.documento, c.area, c.sede, c.cargo].some((x) => (x || '').toLowerCase().includes(q));
 
 function pintarTabla() {
   const q = $('buscar').value.trim().toLowerCase(), e = $('f-estado').value, a = $('f-area').value;
   const lista = rep.colaboradores.filter((c) => (!e || c.s.estado === e) && (!a || c.area === a) && coincide(c, q));
   const max = 500;
   $('conteo').textContent = `${lista.length} colaboradores` + (lista.length > max ? `. Se muestran los primeros ${max}; usa el buscador o descarga el Excel.` : '');
-  const cab = `<thead><tr><th>Documento</th><th>Nombre</th><th>Área</th><th>Estado</th><th class="num">Respondidas</th><th class="num">Temas enviados</th><th class="num">Aprobación</th>
+  const cab = `<thead><tr><th>Documento</th><th>Nombre</th><th>Área / servicio</th><th>Sede</th><th>Datos</th><th>Estado</th><th class="num">Respondidas</th><th class="num">Temas enviados</th><th class="num">Aprobación</th>
     ${rep.temas.map((t, i) => `<th title="${esc(t.nombre)}${t.ciudad ? ' (' + esc(t.ciudad) + ')' : ''}" class="num">T${i + 1}</th>`).join('')}<th>Le faltan</th><th>Última respuesta</th></tr></thead>`;
   const filas = lista.slice(0, max).map((c) => {
     const pill = c.s.estado === 'Envió los 10 temas' ? 'si' : c.s.estado === 'No ha iniciado' ? 'no' : 'pr';
@@ -359,11 +365,12 @@ function pintarTabla() {
       const k = t.r === 0 ? 0 : t.r < t.n ? 1 : t.c < t.n ? 2 : 3;
       return `<td class="num"><span class="cel c${k}${t.env ? ' env' : ''}" title="${esc(rep.temas[i].nombre)}: ${t.env ? 'enviado' : 'sin enviar'}, ${t.r} de ${t.n} respondidas, ${t.c} correctas">${t.r}${k === 3 ? '✓' : ''}</span></td>`;
     }).join('');
-    return `<tr><td>${esc(c.documento)}</td><td>${esc(c.nombre)}</td><td>${esc(c.area)}</td><td><span class="pill ${pill}">${c.s.estado}</span></td>
+    return `<tr><td>${esc(c.documento)}</td><td>${esc(c.nombre)}</td><td>${esc(c.area)}</td><td>${esc(c.sede)}</td>
+      <td>${c.datos_al_dia ? `<span class="pill si" title="Autorizó el ${fmt(c.autorizacion_fecha)}">Al día</span>` : '<span class="pill no">Pendiente</span>'}</td><td><span class="pill ${pill}">${c.s.estado}</span></td>
       <td class="num">${c.s.r} / ${c.s.n}</td><td class="num">${c.s.env} / ${rep.temas.length}</td><td class="num">${c.s.env ? c.s.aprob + '%' : '–'}</td>${celdas}
       <td style="white-space:normal;min-width:240px">${c.s.faltan.length === rep.temas.length ? 'Todos los temas' : esc(c.s.faltan.join(', '))}</td><td>${fmt(c.ultima_respuesta)}</td></tr>`;
   }).join('');
-  $('tabla').innerHTML = cab + '<tbody>' + (filas || `<tr><td colspan="${9 + rep.temas.length}" class="vacio">No hay colaboradores con ese filtro.</td></tr>`) + '</tbody>';
+  $('tabla').innerHTML = cab + '<tbody>' + (filas || `<tr><td colspan="${11 + rep.temas.length}" class="vacio">No hay colaboradores con ese filtro.</td></tr>`) + '</tbody>';
 }
 
 // ------------------------------------------------ colaboradores (manual)
@@ -463,7 +470,7 @@ async function exportar() {
       const mias = porColab.get(c.documento) || new Map();
       const malas = preguntasAct.filter((p) => mias.has(p.id) && !mias.get(p.id).ok).map((p) => etiqueta.get(p.id));
       const o = {
-        Documento: c.documento, Nombre: c.nombre, 'Área': c.area, Estado: c.s.estado,
+        Documento: c.documento, Nombre: c.nombre, 'Área': c.area, Cargo: c.cargo, Sede: c.sede, Estado: c.s.estado,
         'Temas enviados': c.s.env, 'Temas sin enviar': c.s.sinEnviar.join(', '),
         'Fecha en que envió los 10 temas': c.enviado_en ? new Date(c.enviado_en) : '',
         '% aprobación (temas enviados)': c.s.env ? c.s.aprob : '', '% sobre el cuestionario completo': c.s.aprobTotal,
@@ -509,6 +516,13 @@ async function exportar() {
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(detalle), 'Respuestas por pregunta');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(porPregunta), 'Aciertos por pregunta');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(porTema), 'Cobertura por tema');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rep.colaboradores.map((c) => ({
+      Documento: c.documento, Nombres: c.nombres, Apellidos: c.apellidos, 'Nombre completo': c.nombre, Celular: c.celular,
+      Cargo: c.cargo, Servicio: c.servicio, Sede: c.sede, 'Área': c.area, 'Cumpleaños': c.cumple, 'Mes de cumpleaños': c.cumple_mes || '', 'Día de cumpleaños': c.cumple_dia || '',
+      'Datos al día': c.datos_al_dia ? 'Sí' : 'No', 'Datos actualizados el': c.datos_actualizados ? new Date(c.datos_actualizados) : '',
+      'Autorizó tratamiento de datos': c.autorizacion_fecha ? 'Sí' : 'No', 'Fecha de autorización': c.autorizacion_fecha ? new Date(c.autorizacion_fecha) : '',
+      'Versión del aviso aceptado': c.autorizacion_version,
+    }))), 'Datos de colaboradores');
     XLSX.writeFile(wb, `resultados-feria-salud-${new Date().toISOString().slice(0, 10)}.xlsx`);
   } catch (e) { $('conteo').textContent = 'No se pudo generar el Excel: ' + e.message; }
   finally { b.disabled = false; b.innerHTML = txt; }
@@ -636,11 +650,13 @@ const TABLAS_BI = [
   ['resumen_pregunta', 'Por pregunta: respondieron, correctas, incorrectas, % de acierto, cuántos eligieron A/B/C/D y el error más común', 'Preguntas más falladas'],
   ['resultado_colaborador', 'Por colaborador: estado, temas enviados, % de aprobación (sobre lo enviado y sobre las 30)', 'Aprobación por colaborador, ranking'],
   ['resultado_tema', 'Por colaborador y tema (10 filas por persona): respondidas, correctas, enviado, %', 'Qué temas vio y le faltaron a cada uno'],
-  ['resumen_area', 'Por área: colaboradores, participación, % que completó y % de aprobación', 'Comparar áreas'],
+  ['resumen_area', 'Por área o servicio: colaboradores, participación, % que completó y % de aprobación', 'Comparar servicios'],
+  ['resumen_sede', 'Por sede: colaboradores, participación, % que completó y % de aprobación', 'Comparar sedes'],
   ['avance_diario', 'Por día (hora Colombia): respuestas, temas enviados, personas activas', 'Cómo avanzó la feria día a día'],
   ['temas', 'Los temas con su ciudad', 'Tabla de dimensión'],
   ['preguntas', 'Las preguntas con sus opciones y la respuesta correcta', 'Tabla de dimensión'],
-  ['colaboradores', 'Documento, nombre, área y fechas de ingreso', 'Tabla de dimensión'],
+  ['colaboradores', 'Datos actualizados de cada colaborador: nombres, apellidos, celular, cargo, servicio, sede, cumpleaños, autorización y fechas', 'Tabla de dimensión, base de datos actualizada'],
+  ['autorizaciones', 'Cada autorización de tratamiento de datos: documento, versión del aviso y fecha', 'Prueba de las autorizaciones'],
   ['respuestas', 'Cada respuesta marcada: documento, pregunta, opción, si fue correcta y si el tema se envió', 'Detalle fino, cruces propios'],
   ['envios_tema', 'Cada tema enviado con su fecha', 'Detalle de envíos'],
 ];

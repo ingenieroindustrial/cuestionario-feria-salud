@@ -40,8 +40,30 @@ CREATE TABLE IF NOT EXISTS colaboradores (
   bloqueado_hasta   TEXT,
   ultimo_ingreso    TEXT,
   enviado_en        TEXT,                   -- cuándo envió el cuestionario (ya no puede cambiar respuestas)
+  nombres           TEXT,
+  apellidos         TEXT,
+  celular           TEXT,
+  cargo             TEXT,
+  servicio          TEXT,
+  sede              TEXT,
+  cumple_mes        INTEGER,                -- solo día y mes del cumpleaños (minimización de datos)
+  cumple_dia        INTEGER,
+  datos_actualizados TEXT,
+  autorizacion_version TEXT,                -- versión del aviso de privacidad aceptado
+  autorizacion_fecha   TEXT,
   creado            TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
+
+-- Prueba de cada autorización de tratamiento de datos (Ley 1581 de 2012, Decreto 1377 de 2013)
+CREATE TABLE IF NOT EXISTS autorizaciones (
+  id             INTEGER PRIMARY KEY,
+  colaborador_id INTEGER NOT NULL REFERENCES colaboradores(id) ON DELETE CASCADE,
+  version        TEXT NOT NULL,
+  aceptada_en    TEXT NOT NULL,
+  ip             TEXT,
+  user_agent     TEXT
+);
+CREATE INDEX IF NOT EXISTS autorizaciones_colab_idx ON autorizaciones(colaborador_id);
 
 CREATE TABLE IF NOT EXISTS sesiones (
   token          TEXT PRIMARY KEY,

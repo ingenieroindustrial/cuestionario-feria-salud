@@ -60,7 +60,7 @@ img { display: block; }
 /* ---------- Controles ---------- */
 :focus-visible { outline: none; box-shadow: var(--foco); }
 label.campo { display: block; font-weight: 700; margin-bottom: 6px; }
-input[type=text], input[type=search], input[type=password], input[type=datetime-local], input:not([type]), select {
+input[type=text], input[type=search], input[type=password], input[type=datetime-local], input[type=tel], input:not([type]), select {
   width: 100%; font: inherit; color: var(--tinta); background: var(--papel);
   border: 1.5px solid var(--linea); border-radius: var(--r-s); padding: 12px 14px; min-height: 48px;
 }

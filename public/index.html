@@ -43,19 +43,47 @@
         </button>
       </div>
       <div class="encabezado"><b>Pasaporte</b><span>Feria de la Salud</span></div>
-      <h2>Datos del viajero</h2>
-      <p class="bajada">Si es tu primera vez, te registramos. Si ya empezaste, sigues donde quedaste.</p>
+      <h2 id="libro-titulo">Datos del viajero</h2>
+      <p class="bajada" id="libro-bajada">Escribe tu número de identificación. Si ya empezaste, sigues donde quedaste.</p>
       <form id="f-login" novalidate>
         <div>
-          <label class="campo" for="nom">Nombre completo</label>
-          <input id="nom" autocomplete="name" autocapitalize="words" placeholder="Ej: María Fernanda López Ruiz" aria-describedby="login-err">
-        </div>
-        <div>
-          <label class="campo" for="doc">Número de documento</label>
+          <label class="campo" for="doc">Número de identificación</label>
           <input id="doc" inputmode="numeric" autocomplete="username" placeholder="Ej: 1020304050" aria-describedby="login-err">
         </div>
         <div id="login-err" class="nota error hidden" role="alert"></div>
-        <button class="btn full" id="b-login" type="submit">Abrir mi pasaporte</button>
+        <button class="btn full" id="b-login" type="submit">Continuar</button>
+      </form>
+
+      <form id="f-datos" class="hidden" novalidate>
+        <p class="doc-fijo">Identificación <b id="d-doc"></b> <button class="enlace" id="b-otro-doc" type="button">No soy yo</button></p>
+        <div class="dos">
+          <div><label class="campo" for="d-nombres">Nombres</label><input id="d-nombres" autocomplete="given-name" autocapitalize="words" maxlength="60"></div>
+          <div><label class="campo" for="d-apellidos">Apellidos</label><input id="d-apellidos" autocomplete="family-name" autocapitalize="words" maxlength="60"></div>
+        </div>
+        <div class="dos">
+          <div><label class="campo" for="d-celular">Número de celular</label><input id="d-celular" type="tel" inputmode="tel" autocomplete="tel-national" maxlength="16" placeholder="Ej: 3001234567" aria-describedby="d-celular-ayuda"><small class="ayuda" id="d-celular-ayuda"></small></div>
+          <fieldset class="cumple">
+            <legend class="campo">Cumpleaños</legend>
+            <div class="cumple-sel">
+              <select id="d-dia" aria-label="Día de tu cumpleaños"></select>
+              <select id="d-mes" aria-label="Mes de tu cumpleaños"></select>
+            </div>
+            <small class="ayuda" id="d-cumple-ayuda">Solo día y mes.</small>
+          </fieldset>
+        </div>
+        <div><label class="campo" for="d-cargo">Cargo</label><input id="d-cargo" list="l-cargo" autocomplete="organization-title" maxlength="80" placeholder="Ej: Auxiliar de enfermería"><datalist id="l-cargo"></datalist></div>
+        <div class="dos">
+          <div><label class="campo" for="d-servicio">Servicio</label><input id="d-servicio" list="l-servicio" autocomplete="off" maxlength="80" placeholder="Ej: Urgencias"><datalist id="l-servicio"></datalist></div>
+          <div><label class="campo" for="d-sede">Sede</label><input id="d-sede" list="l-sede" autocomplete="off" maxlength="80" placeholder="Ej: Sede principal"><datalist id="l-sede"></datalist></div>
+        </div>
+        <fieldset class="privacidad">
+          <legend>Tratamiento de tus datos personales</legend>
+          <p>Clínica Medical S.A.S. usará estos datos para actualizar la base de colaboradores, registrar tu participación en la feria, contactarte por asuntos institucionales y celebrar tu cumpleaños. No los vende ni los cede. Puedes conocerlos, corregirlos o pedir que se borren cuando quieras. <a href="/privacidad.html" target="_blank" rel="noopener">Lee el aviso de privacidad completo</a></p>
+          <label class="check" for="d-autorizo"><input type="checkbox" id="d-autorizo"><span>Leí el aviso y autorizo a Clínica Medical S.A.S. a tratar mis datos personales con esas finalidades, conforme a la Ley 1581 de 2012 y su Política de Tratamiento de Datos Personales.</span></label>
+        </fieldset>
+        <div id="datos-err" class="nota error hidden" role="alert"></div>
+        <button class="btn full" id="b-datos" type="submit">Guardar y abrir mi pasaporte</button>
+        <button class="btn sec full hidden" id="b-datos-volver" type="button">Volver a mi pasaporte sin cambios</button>
       </form>
     </div>
   </div>
@@ -68,6 +96,7 @@
       <div class="barra">
         <span class="logo-chip"><img src="/marca/logo.png" alt="Medical"></span>
         <span class="spacer"></span>
+        <button class="btn claro chico" id="b-misdatos" type="button">Mis datos</button>
         <button class="btn claro chico" id="b-salir" type="button">Salir</button>
       </div>
       <div class="titular">
@@ -310,7 +339,7 @@ function consejos() {
   return lista[consejo++ % lista.length];
 }
 $('zg').onclick = () => zg.decir(consejos(), null, 6000);
-$('zl').onclick = () => zl.decir('¡Hola! Soy ZERO. Escribe tu nombre y tu documento para abrir tu pasaporte.', 'presentando', 6000);
+$('zl').onclick = () => zl.decir(modoDatos ? 'Tus datos se quedan en Medical. Puedes corregirlos cuando quieras.' : '¡Hola! Soy ZERO. Escribe tu número de identificación para abrir tu pasaporte.', 'presentando', 6000);
 
 // ------------------------------------------------ ZERO de cada ciudad
 const CIUDADES_ZERO = ['bogota', 'armenia', 'leticia', 'cali', 'bucaramanga', 'cartagena', 'ipiales', 'barranquilla', 'medellin', 'villavicencio'];
@@ -737,39 +766,148 @@ async function cargar() {
 }
 
 // ------------------------------------------------ Ingreso
+let modoDatos = null;      // null: pide documento · 'ingreso': datos antes de entrar · 'actualizar': Mis datos
+let avisoVersion = '';
+let docIngreso = '';
+const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+const DIAS_MES = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+function pasoLibro(paso) {
+  modoDatos = paso;
+  $('f-login').classList.toggle('hidden', !!paso);
+  $('f-datos').classList.toggle('hidden', !paso);
+  $('libro').classList.toggle('con-datos', !!paso);
+  $('v-login').classList.toggle('con-datos', !!paso);
+  $('libro-titulo').textContent = paso === 'actualizar' ? 'Mis datos' : 'Datos del viajero';
+  $('libro-bajada').textContent = !paso ? 'Escribe tu número de identificación. Si ya empezaste, sigues donde quedaste.'
+    : paso === 'actualizar' ? 'Revisa tus datos y corrige lo que haya cambiado.'
+    : 'Antes de abrir tu pasaporte, ayúdanos a tener tus datos al día.';
+  $('b-datos').textContent = paso === 'actualizar' ? 'Guardar mis datos' : 'Guardar y abrir mi pasaporte';
+  $('b-datos-volver').classList.toggle('hidden', paso !== 'actualizar');
+  $('b-otro-doc').classList.toggle('hidden', paso === 'actualizar');
+  errorDatos('');
+}
+
 function mostrarIngreso() {
   $('libro').classList.remove('abriendo');
+  pasoLibro(null);
   vista('v-login');
   setTimeout(() => zl.decir('¡Hola! Soy ZERO. ¿Listo para recorrer Colombia?', 'presentando', 0), QUIETO ? 0 : 700);
 }
-let saludado = '';
-$('nom').addEventListener('input', () => {
-  const partes = $('nom').value.trim().split(/\s+/).filter((x) => x.length > 1);
-  const nombre = partes[0] ? partes[0][0].toUpperCase() + partes[0].slice(1).toLowerCase() : '';
-  if (partes.length >= 2 && nombre !== saludado) { saludado = nombre; zl.decir(`¡Mucho gusto, ${nombre}! Ahora tu número de documento.`, 'ok', 0); }
-});
-$('doc').addEventListener('focus', () => zl.decir('Con tu documento guardo tu avance. Si vuelves otro día, sigues donde quedaste.', 'presentando', 0));
+$('doc').addEventListener('focus', () => zl.decir('Con tu número de identificación guardo tu avance. Si vuelves otro día, sigues donde quedaste.', 'presentando', 0));
+
+function errorDatos(m) { const e = $('datos-err'); e.textContent = m; e.classList.toggle('hidden', !m); }
+function llenarLista(id, xs) { $(id).innerHTML = (xs || []).map((x) => `<option value="${esc(x)}">`).join(''); }
+
+function mostrarDatos(r, modo, doc) {
+  const p = r.perfil;
+  avisoVersion = r.aviso_version;
+  $('d-doc').textContent = doc;
+  $('d-nombres').value = p.nombres; $('d-apellidos').value = p.apellidos;
+  $('d-cargo').value = p.cargo; $('d-servicio').value = p.servicio; $('d-sede').value = p.sede;
+  llenarLista('l-cargo', r.opciones.cargo); llenarLista('l-servicio', r.opciones.servicio); llenarLista('l-sede', r.opciones.sede);
+  // Celular y cumpleaños guardados no se muestran: solo se avisa que existen, y se conservan si se dejan vacíos
+  $('d-celular').value = '';
+  $('d-celular').placeholder = p.celular_final ? `Termina en ${p.celular_final}` : 'Ej: 3001234567';
+  $('d-celular-ayuda').textContent = p.celular_final ? 'Déjalo vacío si no ha cambiado.' : '';
+  const sinCambio = p.tiene_cumple ? '<option value="">—</option>' : '<option value="">Día</option>';
+  $('d-dia').dataset.guardado = p.tiene_cumple ? '1' : '';
+  $('d-dia').innerHTML = sinCambio + Array.from({ length: 31 }, (_, i) => `<option value="${i + 1}">${i + 1}</option>`).join('');
+  $('d-mes').innerHTML = (p.tiene_cumple ? '<option value="">Guardado</option>' : '<option value="">Mes</option>') + MESES.map((m, i) => `<option value="${i + 1}">${m}</option>`).join('');
+  $('d-cumple-ayuda').textContent = p.tiene_cumple ? 'Ya lo tenemos. Cámbialo solo si está mal.' : 'Solo día y mes.';
+  $('d-autorizo').checked = false;
+  $('libro').classList.remove('abriendo');
+  pasoLibro(modo);
+  vista('v-login');
+  const primero = ['d-nombres', 'd-apellidos', 'd-celular', 'd-cargo', 'd-servicio', 'd-sede'].find((id) => !$(id).value && !(id === 'd-celular' && p.celular_final));
+  if (primero) setTimeout(() => $(primero).focus({ preventScroll: true }), 50);
+  if (modo === 'ingreso') zl.decir(r.registrado ? `¡Hola de nuevo! Revisa tus datos y autoriza su uso para seguir.` : '¡Bienvenido! Cuéntame quién eres para hacerte tu pasaporte.', 'portatil', 0);
+  else zl.decir('Corrige lo que haya cambiado. Lo demás déjalo igual.', 'portatil', 0);
+}
+
+function leerDatos() {
+  return {
+    nombres: $('d-nombres').value, apellidos: $('d-apellidos').value, celular: $('d-celular').value,
+    cargo: $('d-cargo').value, servicio: $('d-servicio').value, sede: $('d-sede').value,
+    cumple_dia: Number($('d-dia').value) || 0, cumple_mes: Number($('d-mes').value) || 0,
+  };
+}
+function revisarDatos(d) {
+  const tieneCel = !!$('d-celular-ayuda').textContent, tieneCumple = !!$('d-dia').dataset.guardado;
+  if (d.nombres.trim().length < 2) return ['d-nombres', 'Escribe tus nombres.'];
+  if (d.apellidos.trim().length < 2) return ['d-apellidos', 'Escribe tus apellidos.'];
+  const cel = d.celular.replace(/[\s().-]/g, '').replace(/^\+?57(?=3\d{9}$)/, '');
+  if (!(cel === '' && tieneCel) && !/^3\d{9}$/.test(cel)) return ['d-celular', 'Escribe un celular de 10 dígitos que empiece por 3.'];
+  if (!(!d.cumple_dia && !d.cumple_mes && tieneCumple)) {
+    if (!d.cumple_dia) return ['d-dia', 'Elige el día de tu cumpleaños.'];
+    if (!d.cumple_mes) return ['d-mes', 'Elige el mes de tu cumpleaños.'];
+    if (d.cumple_dia > DIAS_MES[d.cumple_mes - 1]) return ['d-dia', `${MESES[d.cumple_mes - 1][0].toUpperCase() + MESES[d.cumple_mes - 1].slice(1)} no tiene ${d.cumple_dia} días.`];
+  }
+  if (d.cargo.trim().length < 2) return ['d-cargo', 'Escribe tu cargo.'];
+  if (d.servicio.trim().length < 2) return ['d-servicio', 'Escribe el servicio en el que trabajas.'];
+  if (d.sede.trim().length < 2) return ['d-sede', 'Escribe tu sede.'];
+  if (!$('d-autorizo').checked) return ['d-autorizo', 'Para guardar tus datos necesitamos tu autorización. Lee el aviso y marca la casilla.'];
+  return null;
+}
+const CAMPO_ERR = { nombres: 'd-nombres', apellidos: 'd-apellidos', celular: 'd-celular', cargo: 'd-cargo', servicio: 'd-servicio', sede: 'd-sede', cumple: 'd-dia', documento: 'b-otro-doc' };
+
+async function entrarCon(r, doc) {
+  if (ls.get('fs_dueno') !== doc) { pendientes = {}; ls.del(LS_PEND); } // pendientes de otra persona en este equipo
+  ls.set('fs_dueno', doc);
+  token = r.token; ls.set(LS_TOKEN, token);
+  zl.decir(`¡Bienvenido, ${r.nombres || r.nombre.split(' ')[0]}! Vamos.`, 'celebrando', 0);
+  if (!QUIETO) { $('libro').classList.add('abriendo'); await pausa(520); }
+  $('doc').value = '';
+  await cargar();
+}
 
 $('f-login').onsubmit = async (ev) => {
   ev.preventDefault();
-  const doc = $('doc').value.trim(), nom = $('nom').value.trim().replace(/\s+/g, ' ');
-  if (nom.split(' ').filter((x) => x.length > 1).length < 2) { errorLogin('Escribe tu nombre completo (nombre y apellido).'); zl.decir('Necesito tu nombre y tu apellido.', 'brazos', 0); $('nom').focus(); return; }
-  if (!doc) { errorLogin('Escribe tu número de documento.'); zl.decir('Me falta tu número de documento.', 'brazos', 0); $('doc').focus(); return; }
-  const b = $('b-login'); b.disabled = true; b.textContent = 'Abriendo…';
+  const doc = $('doc').value.trim();
+  if (!doc) { errorLogin('Escribe tu número de identificación.'); zl.decir('Me falta tu número de identificación.', 'brazos', 0); $('doc').focus(); return; }
+  const b = $('b-login'); b.disabled = true; b.textContent = 'Buscando…';
   errorLogin('');
   try {
-    const r = await api('/api/ingresar', { documento: doc, nombre: nom });
-    if (ls.get('fs_dueno') !== doc) { pendientes = {}; ls.del(LS_PEND); } // pendientes de otra persona en este equipo
-    ls.set('fs_dueno', doc);
-    token = r.token; ls.set(LS_TOKEN, token);
-    zl.decir(`¡Bienvenido, ${r.nombre.split(' ')[0]}! Vamos.`, 'celebrando', 0);
-    if (!QUIETO) { $('libro').classList.add('abriendo'); await pausa(520); }
-    $('doc').value = ''; $('nom').value = ''; saludado = '';
-    await cargar();
+    const r = await api('/api/ingresar', { documento: doc });
+    docIngreso = doc;
+    if (r.token) await entrarCon(r, doc);
+    else mostrarDatos(r, 'ingreso', doc.replace(/[.,\s-]/g, ''));
   } catch (e) {
-    errorLogin(e.message); zl.decir('Mmm, revisa ese dato.', 'brazos', 0);
-    $(e.codigo === 'NOMBRE' ? 'nom' : 'doc').focus();
-  } finally { b.disabled = false; b.textContent = 'Abrir mi pasaporte'; }
+    errorLogin(e.message); zl.decir('Mmm, revisa ese dato.', 'brazos', 0); $('doc').focus();
+  } finally { b.disabled = false; b.textContent = 'Continuar'; }
+};
+
+$('f-datos').onsubmit = async (ev) => {
+  ev.preventDefault();
+  const d = leerDatos();
+  const mal = revisarDatos(d);
+  if (mal) { errorDatos(mal[1]); zl.decir(mal[0] === 'd-autorizo' ? 'Sin tu autorización no puedo guardar tus datos.' : 'Revisa ese dato, por favor.', 'brazos', 0); $(mal[0]).focus(); return; }
+  const b = $('b-datos'), txt = b.textContent; b.disabled = true; b.textContent = 'Guardando…';
+  errorDatos('');
+  try {
+    if (modoDatos === 'ingreso') {
+      const r = await api('/api/ingresar', { documento: docIngreso, datos: d, autorizo: true, version: avisoVersion });
+      await entrarCon(r, docIngreso);
+    } else {
+      const r = await api('/api/mis-datos', { datos: d, autorizo: true, version: avisoVersion });
+      if (datos) datos.nombre = r.nombre;
+      irAlPasaporte();
+      zg.decir('¡Listo! Tus datos quedaron actualizados.', 'ok', 4000);
+    }
+  } catch (e) {
+    if (e.status === 401) return sesionVencida();
+    errorDatos(e.message); zl.decir('Mmm, revisa ese dato.', 'brazos', 0);
+    const campo = CAMPO_ERR[(e.codigo || '').split(':')[1]] || (e.codigo === 'AUTORIZACION' ? 'd-autorizo' : null);
+    if (campo) $(campo).focus();
+  } finally { b.disabled = false; b.textContent = txt; }
+};
+$('b-otro-doc').onclick = () => { $('doc').value = ''; mostrarIngreso(); $('doc').focus(); };
+$('b-datos-volver').onclick = () => irAlPasaporte();
+$('b-misdatos').onclick = async () => {
+  const b = $('b-misdatos'); b.disabled = true;
+  try { const r = await api('/api/mis-datos'); mostrarDatos(r, 'actualizar', r.documento); }
+  catch (e) { if (e.status === 401) return sesionVencida(); zg.decir('No pude abrir tus datos. Revisa tu conexión.', 'brazos', 4000); }
+  finally { b.disabled = false; }
 };
 $('b-salir2').onclick = () => $('b-salir').onclick();
 $('b-salir').onclick = async () => {

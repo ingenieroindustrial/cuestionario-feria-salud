@@ -310,3 +310,27 @@ body.feria .btn.claro { background: rgba(255,255,255,.16); border-color: rgba(25
 .sello-zona.grande .zero-c { height: 132px; right: -30px; bottom: -22px; filter: drop-shadow(0 12px 14px rgba(0,0,0,.3)); animation: zero-llega .8s var(--ease-sello) both .2s; }
 @keyframes zero-llega { 0% { opacity: 0; transform: translateZ(46px) translateY(18px) scale(.6); } 70% { opacity: 1; transform: translateZ(46px) translateY(-4px) scale(1.05); } 100% { transform: translateZ(46px); } }
 @media (prefers-reduced-motion: reduce) { .sello-zona .zero-c { animation: none !important; } }
+
+/* Paso 2 del ingreso y "Mis datos": el pasaporte se abre más ancho para el formulario */
+.f-ingreso.con-datos .escena { width: min(1120px, 100%); grid-template-columns: 1fr minmax(320px, 600px); }
+.libro.con-datos { transform: rotateX(2deg) rotateY(-3deg); }
+.libro .doc-fijo { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; color: var(--tinta-2); font-size: .92rem; padding: 10px 14px; border: 1.5px dashed var(--pp-linea); border-radius: 12px; }
+.libro .doc-fijo b { color: var(--texto-azul); font-size: 1.05rem; letter-spacing: .04em; font-variant-numeric: tabular-nums; }
+.libro .enlace { margin-left: auto; background: none; border: 0; padding: 6px 2px; min-height: 36px; color: var(--texto-azul); font: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.libro .dos { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.libro .ayuda { display: block; margin-top: 5px; color: var(--tinta-2); font-size: .82rem; min-height: 1em; }
+.libro fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.libro .cumple-sel { display: grid; grid-template-columns: 82px 1fr; gap: 8px; }
+.libro select { background-color: #fffdf8; border-color: var(--pp-linea); }
+.libro .privacidad { background: #f4efe2; border: 1px solid var(--pp-linea); border-radius: 14px; padding: 14px 16px 12px; display: grid; gap: 10px; }
+.libro .privacidad legend { float: left; width: 100%; font-weight: 700; color: var(--texto-azul); font-size: .95rem; }
+.libro .privacidad p { font-size: .86rem; line-height: 1.5; color: var(--tinta-2); clear: both; }
+.libro .privacidad a { color: var(--texto-azul); font-weight: 700; text-underline-offset: 3px; }
+.libro .check { display: grid; grid-template-columns: 24px 1fr; gap: 10px; align-items: start; font-size: .9rem; line-height: 1.45; cursor: pointer; color: var(--tinta); }
+.libro .check input { width: 22px; height: 22px; margin: 1px 0 0; accent-color: var(--texto-azul); cursor: pointer; }
+.libro .check:has(input:focus-visible) { outline: 2px solid var(--texto-azul); outline-offset: 4px; border-radius: 6px; }
+@media (max-width: 560px) { .libro .dos { grid-template-columns: 1fr; } }
+.libro.con-datos, .libro.con-datos:hover, .libro.con-datos:focus-within { transform: none; }
+.f-ingreso.con-datos { place-items: start center; padding-top: 150px; }
+.libro legend.campo { padding: 0; font-weight: 700; margin-bottom: 6px; }
+@media (max-width: 760px) { .f-ingreso.con-datos { padding-top: 18px; } .f-ingreso.con-datos .escena { grid-template-columns: 1fr; } }

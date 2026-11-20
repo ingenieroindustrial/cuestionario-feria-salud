@@ -294,3 +294,18 @@ dialog .acciones { display: flex; gap: 10px; justify-content: flex-end; }
   .cobertura .fila .pista { grid-column: 1 / -1; grid-row: 2; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+/* Envío por tema */
+.sello.listo { border-color: var(--azul); border-style: dashed; }
+.sello.listo .estado { color: var(--azul); font-weight: 700; }
+.acum { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.acum b { font-family: var(--f-titulo); font-size: 2.6rem; font-weight: 700; line-height: 1.05; color: var(--marino); letter-spacing: -.02em; }
+.acum span { color: var(--tinta-2); }
+.envio-tema { display: grid; gap: 12px; margin-top: 24px; padding: 18px; border-radius: var(--r-m); border: 1.5px dashed var(--linea); background: var(--papel); }
+.envio-tema.listo { border: 1.5px solid var(--azul); background: linear-gradient(180deg, var(--papel), var(--cielo)); }
+.envio-tema h2 { font-size: 1.15rem; color: var(--marino); }
+.envio-tema p { margin-top: 4px; }
+.envio-tema .btn { justify-self: start; }
+#tema-res { margin-top: 24px; scroll-margin-top: 16px; }
+.cel.env { box-shadow: 0 0 0 2px var(--marino); }
+@media (max-width: 640px) { .felicidades .acum { justify-content: center; } }

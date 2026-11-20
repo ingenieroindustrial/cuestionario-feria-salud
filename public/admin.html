@@ -65,7 +65,7 @@
       <div class="indicadores" id="kpis"></div>
       <div class="panel">
         <div class="panel-cab"><h2>Cobertura por tema</h2></div>
-        <p class="muted small">Qué porcentaje de colaboradores respondió las 3 preguntas de cada tema, y cuántas de esas respuestas fueron correctas.</p>
+        <p class="muted small">Qué porcentaje de colaboradores ya envió cada tema, y cuántas de esas respuestas fueron correctas.</p>
         <div class="cobertura" id="cobertura"></div>
       </div>
       <div class="panel">
@@ -80,7 +80,7 @@
           <input id="buscar" type="search" placeholder="Buscar por nombre, documento o área" aria-label="Buscar colaborador">
           <select id="f-estado" aria-label="Filtrar por estado">
             <option value="">Todos los estados</option>
-            <option>No ha iniciado</option><option>En progreso</option><option>Respondió todo sin enviar</option><option>Envió</option>
+            <option>No ha iniciado</option><option>En progreso</option><option>Envió algunos temas</option><option>Envió los 10 temas</option>
           </select>
           <select id="f-area" aria-label="Filtrar por área"><option value="">Todas las áreas</option></select>
         </div>
@@ -90,6 +90,7 @@
           <span><span class="cel c1">1-2</span> incompleto</span>
           <span><span class="cel c2">3</span> completo con errores</span>
           <span><span class="cel c3">3✓</span> todo correcto</span>
+          <span><span class="cel c2 env">3</span> borde oscuro: tema enviado</span>
         </div>
         <div class="muted small" id="conteo"></div>
         <div class="tabla"><table id="tabla"></table></div>
@@ -244,15 +245,18 @@ function confirmar(titulo, mensaje, accion) {
 
 // ------------------------------------------------ datos
 function resumir(c) {
-  let r = 0, n = 0, ok = 0, completos = 0;
-  const faltan = [], errores = [];
+  let r = 0, n = 0, ok = 0, completos = 0, env = 0, envN = 0, envOk = 0;
+  const faltan = [], errores = [], sinEnviar = [];
   c.por_tema.forEach((t, i) => {
     r += t.r; n += t.n; ok += t.c;
+    if (t.env) { env++; envN += t.n; envOk += t.c; } else sinEnviar.push(rep.temas[i].nombre);
     if (t.r >= t.n) { completos++; if (t.c < t.n) errores.push(rep.temas[i].nombre); }
     else faltan.push(rep.temas[i].nombre);
   });
-  const estado = c.enviado_en ? 'Envió' : r === 0 ? 'No ha iniciado' : r < n ? 'En progreso' : 'Respondió todo sin enviar';
-  return { r, n, ok, completos, faltan, errores, estado, aprob: n ? pct(ok, n) : 0 };
+  const total = rep.temas.length;
+  const estado = env >= total ? 'Envió los 10 temas' : env > 0 ? 'Envió algunos temas' : r === 0 ? 'No ha iniciado' : 'En progreso';
+  // aprob: sobre los temas enviados · aprobTotal: sobre todas las preguntas del cuestionario
+  return { r, n, ok, completos, faltan, errores, estado, env, envN, envOk, sinEnviar, aprob: envN ? pct(envOk, envN) : 0, aprobTotal: n ? pct(envOk, n) : 0 };
 }
 
 async function cargar(silencioso) {
@@ -261,9 +265,10 @@ async function cargar(silencioso) {
     const crudo = await api('/api/admin/reporte');
     rep = { config: crudo.config, temas: crudo.temas };
     rep.colaboradores = crudo.colaboradores.map((x) => {
+      const enviados = new Set((x.s || '').split(',').filter(Boolean).map(Number));
       const m = new Map((x.g || '').split(',').filter(Boolean).map((t) => { const [id, r, c] = t.split(':').map(Number); return [id, { r, c }]; }));
       return { documento: x.d, nombre: x.n, area: x.a || '', ultimo_ingreso: x.i, ultima_respuesta: x.u, enviado_en: x.e || null,
-        por_tema: rep.temas.map((t) => ({ r: m.get(t.id)?.r || 0, c: m.get(t.id)?.c || 0, n: t.n })) };
+        por_tema: rep.temas.map((t) => ({ r: m.get(t.id)?.r || 0, c: m.get(t.id)?.c || 0, n: t.n, env: enviados.has(t.id) })) };
     });
     rep.colaboradores.forEach((c) => (c.s = resumir(c)));
     pintar();
@@ -283,19 +288,19 @@ function pintar() {
   const respTot = cs.reduce((a, c) => a + c.s.r, 0), okTot = cs.reduce((a, c) => a + c.s.ok, 0);
   $('kpis').innerHTML = [
     [tot, 'colaboradores registrados'],
-    [cuenta('Envió'), 'enviaron', tot],
-    [cuenta('Respondió todo sin enviar'), 'respondieron todo sin enviar', tot],
-    [cuenta('En progreso'), 'van a medias', tot],
+    [cuenta('Envió los 10 temas'), 'enviaron los 10 temas', tot],
+    [cuenta('Envió algunos temas'), 'han enviado algunos temas', tot],
+    [cuenta('En progreso'), 'respondiendo sin enviar aún', tot],
     [cuenta('No ha iniciado'), 'no han empezado', tot],
-    [(() => { const e = cs.filter((c) => c.enviado_en); return e.length ? Math.round(e.reduce((a, c) => a + c.s.aprob, 0) / e.length) + '%' : '–'; })(), 'aprobación promedio de quienes enviaron'],
+    [(() => { const e = cs.filter((c) => c.s.env); return e.length ? Math.round(e.reduce((a, c) => a + c.s.aprob, 0) / e.length) + '%' : '–'; })(), 'aprobación promedio en temas enviados'],
   ].map(([v, l, d]) => `<div class="indicador"><div class="v">${v}</div><div class="l">${l}${d ? ` <span class="pct">${pct(v, d)}%</span>` : ''}</div></div>`).join('');
 
   $('cobertura').innerHTML = tot === 0 ? '<p class="muted">Cuando agregues colaboradores verás aquí su avance por tema.</p>' : rep.temas.map((tm, i) => {
-    const comp = cs.filter((c) => c.por_tema[i].r >= c.por_tema[i].n).length;
-    const resp = cs.reduce((a, c) => a + c.por_tema[i].r, 0), bien = cs.reduce((a, c) => a + c.por_tema[i].c, 0);
+    const comp = cs.filter((c) => c.por_tema[i].env).length;
+    const resp = cs.reduce((a, c) => a + (c.por_tema[i].env ? c.por_tema[i].n : 0), 0), bien = cs.reduce((a, c) => a + (c.por_tema[i].env ? c.por_tema[i].c : 0), 0);
     const p = pct(comp, tot);
-    return `<div class="fila"><span class="nombre">${esc(tm.nombre)}${tm.ciudad ? ` <span class="muted small">· ${esc(tm.ciudad)}</span>` : ''}</span><div class="pista" role="img" aria-label="${p}% completaron"><i style="width:${p}%"></i></div><b>${p}%</b>
-      <span class="det">${comp} de ${tot} lo completaron · ${pct(bien, resp)}% de aciertos</span></div>`;
+    return `<div class="fila"><span class="nombre">${esc(tm.nombre)}${tm.ciudad ? ` <span class="muted small">· ${esc(tm.ciudad)}</span>` : ''}</span><div class="pista" role="img" aria-label="${p}% lo enviaron"><i style="width:${p}%"></i></div><b>${p}%</b>
+      <span class="det">${comp} de ${tot} lo enviaron · ${resp ? pct(bien, resp) + '% de aciertos' : 'sin envíos aún'}</span></div>`;
   }).join('');
 
   const areas = [...new Set(cs.map((c) => c.area).filter(Boolean))].sort();
@@ -315,19 +320,19 @@ function pintarTabla() {
   const lista = rep.colaboradores.filter((c) => (!e || c.s.estado === e) && (!a || c.area === a) && coincide(c, q));
   const max = 500;
   $('conteo').textContent = `${lista.length} colaboradores` + (lista.length > max ? `. Se muestran los primeros ${max}; usa el buscador o descarga el Excel.` : '');
-  const cab = `<thead><tr><th>Documento</th><th>Nombre</th><th>Área</th><th>Estado</th><th class="num">Respondidas</th><th class="num">Aprobación</th>
+  const cab = `<thead><tr><th>Documento</th><th>Nombre</th><th>Área</th><th>Estado</th><th class="num">Respondidas</th><th class="num">Temas enviados</th><th class="num">Aprobación</th>
     ${rep.temas.map((t, i) => `<th title="${esc(t.nombre)}${t.ciudad ? ' (' + esc(t.ciudad) + ')' : ''}" class="num">T${i + 1}</th>`).join('')}<th>Le faltan</th><th>Última respuesta</th></tr></thead>`;
   const filas = lista.slice(0, max).map((c) => {
-    const pill = c.s.estado === 'Envió' ? 'si' : c.s.estado === 'No ha iniciado' ? 'no' : 'pr';
+    const pill = c.s.estado === 'Envió los 10 temas' ? 'si' : c.s.estado === 'No ha iniciado' ? 'no' : 'pr';
     const celdas = c.por_tema.map((t, i) => {
       const k = t.r === 0 ? 0 : t.r < t.n ? 1 : t.c < t.n ? 2 : 3;
-      return `<td class="num"><span class="cel c${k}" title="${esc(rep.temas[i].nombre)}: ${t.r} de ${t.n} respondidas, ${t.c} correctas">${t.r}${k === 3 ? '✓' : ''}</span></td>`;
+      return `<td class="num"><span class="cel c${k}${t.env ? ' env' : ''}" title="${esc(rep.temas[i].nombre)}: ${t.env ? 'enviado' : 'sin enviar'}, ${t.r} de ${t.n} respondidas, ${t.c} correctas">${t.r}${k === 3 ? '✓' : ''}</span></td>`;
     }).join('');
     return `<tr><td>${esc(c.documento)}</td><td>${esc(c.nombre)}</td><td>${esc(c.area)}</td><td><span class="pill ${pill}">${c.s.estado}</span></td>
-      <td class="num">${c.s.r} / ${c.s.n}</td><td class="num">${c.enviado_en ? c.s.aprob + '%' : '–'}</td>${celdas}
+      <td class="num">${c.s.r} / ${c.s.n}</td><td class="num">${c.s.env} / ${rep.temas.length}</td><td class="num">${c.s.env ? c.s.aprob + '%' : '–'}</td>${celdas}
       <td style="white-space:normal;min-width:240px">${c.s.faltan.length === rep.temas.length ? 'Todos los temas' : esc(c.s.faltan.join(', '))}</td><td>${fmt(c.ultima_respuesta)}</td></tr>`;
   }).join('');
-  $('tabla').innerHTML = cab + '<tbody>' + (filas || `<tr><td colspan="${8 + rep.temas.length}" class="vacio">No hay colaboradores con ese filtro.</td></tr>`) + '</tbody>';
+  $('tabla').innerHTML = cab + '<tbody>' + (filas || `<tr><td colspan="${9 + rep.temas.length}" class="vacio">No hay colaboradores con ese filtro.</td></tr>`) + '</tbody>';
 }
 
 // ------------------------------------------------ colaboradores (manual)
@@ -342,8 +347,8 @@ function pintarColaboradores() {
   const max = 300;
   $('tabla-c').innerHTML = `<thead><tr><th>Documento</th><th>Nombre</th><th>Área</th><th>Avance</th><th class="num"><span class="sr">Acciones</span></th></tr></thead><tbody>` +
     (lista.slice(0, max).map((c) => `<tr><td>${esc(c.documento)}</td><td>${esc(c.nombre)}</td><td>${esc(c.area) || '<span class="muted">Sin área</span>'}</td>
-      <td>${c.enviado_en ? `Envió · ${c.s.aprob}%` : `${c.s.r} de ${c.s.n} preguntas`}</td>
-      <td class="acciones">${c.enviado_en ? `<button class="btn fantasma chico" data-reabrir="${esc(c.documento)}" type="button">Habilitar de nuevo</button>` : ''}<button class="btn fantasma chico" data-ed="${esc(c.documento)}" type="button">Editar</button>
+      <td>${c.s.env ? `${c.s.env} de ${rep.temas.length} temas enviados · ${c.s.aprob}%` : `${c.s.r} de ${c.s.n} preguntas`}</td>
+      <td class="acciones">${c.s.env ? `<button class="btn fantasma chico" data-reabrir="${esc(c.documento)}" type="button">Habilitar de nuevo</button>` : ''}<button class="btn fantasma chico" data-ed="${esc(c.documento)}" type="button">Editar</button>
       <button class="btn fantasma chico" style="color:var(--error)" data-del="${esc(c.documento)}" type="button">Eliminar</button></td></tr>`).join('') ||
       '<tr><td colspan="5" class="vacio">Nadie coincide con esa búsqueda.</td></tr>') +
     (lista.length > max ? `<tr><td colspan="5" class="muted small">Se muestran ${max} de ${lista.length}. Usa el buscador para encontrar a alguien.</td></tr>` : '') + '</tbody>';
@@ -375,7 +380,7 @@ $('tabla-c').onclick = async (ev) => {
   const ed = ev.target.closest('[data-ed]'), del = ev.target.closest('[data-del]'), re = ev.target.closest('[data-reabrir]');
   if (re) {
     const c = rep.colaboradores.find((x) => x.documento === re.dataset.reabrir);
-    const si = await confirmar(`¿Habilitar de nuevo a ${c.nombre}?`, 'Podrá volver a cambiar sus respuestas y enviar otra vez. Sus respuestas actuales se conservan.', 'Habilitar');
+    const si = await confirmar(`¿Habilitar de nuevo a ${c.nombre}?`, 'Todos sus temas enviados quedarán abiertos de nuevo: podrá cambiar sus respuestas y volver a enviarlos. Sus respuestas actuales se conservan.', 'Habilitar');
     if (!si) return;
     try { await api('/api/admin/reabrir', { documento: c.documento }); nota('c-fallo', ''); nota('c-ok', `${c.nombre} puede volver a responder.`); await cargar(true); }
     catch (e) { nota('c-fallo', e.message); }
@@ -428,8 +433,11 @@ async function exportar() {
       const malas = preguntasAct.filter((p) => mias.has(p.id) && !mias.get(p.id).ok).map((p) => etiqueta.get(p.id));
       const o = {
         Documento: c.documento, Nombre: c.nombre, 'Área': c.area, Estado: c.s.estado,
-        'Fecha de envío': c.enviado_en ? new Date(c.enviado_en) : '',
-        '% aprobación': c.s.aprob, 'Respuestas correctas': c.s.ok, 'Preguntas respondidas': c.s.r, 'Preguntas totales': c.s.n,
+        'Temas enviados': c.s.env, 'Temas sin enviar': c.s.sinEnviar.join(', '),
+        'Fecha en que envió los 10 temas': c.enviado_en ? new Date(c.enviado_en) : '',
+        '% aprobación (temas enviados)': c.s.env ? c.s.aprob : '', '% sobre el cuestionario completo': c.s.aprobTotal,
+        'Correctas en temas enviados': c.s.envOk, 'Preguntas en temas enviados': c.s.envN,
+        'Respuestas correctas': c.s.ok, 'Preguntas respondidas': c.s.r, 'Preguntas totales': c.s.n,
         'Preguntas incorrectas': malas.join(', '),
         'Temas que le faltan': c.s.faltan.join(', '), 'Temas con errores': c.s.errores.join(', '),
       };
@@ -452,9 +460,10 @@ async function exportar() {
     }
 
     const porTema = rep.temas.map((tm, i) => {
-      const cs = rep.colaboradores, comp = cs.filter((c) => c.por_tema[i].r >= c.por_tema[i].n).length;
-      const resp = cs.reduce((a, c) => a + c.por_tema[i].r, 0), bien = cs.reduce((a, c) => a + c.por_tema[i].c, 0);
-      return { Tema: tm.nombre, Ciudad: tm.ciudad || '', 'Colaboradores que lo completaron': comp, 'Total colaboradores': cs.length, '% cobertura': pct(comp, cs.length), '% aciertos': pct(bien, resp) };
+      const cs = rep.colaboradores, comp = cs.filter((c) => c.por_tema[i].r >= c.por_tema[i].n).length, env = cs.filter((c) => c.por_tema[i].env);
+      const resp = env.reduce((a, c) => a + c.por_tema[i].n, 0), bien = env.reduce((a, c) => a + c.por_tema[i].c, 0);
+      return { Tema: tm.nombre, Ciudad: tm.ciudad || '', 'Colaboradores que lo enviaron': env.length, 'Respondieron todo sin enviar': comp - env.length,
+        'Total colaboradores': cs.length, '% cobertura (enviado)': pct(env.length, cs.length), '% aciertos (enviados)': pct(bien, resp) };
     });
 
     const porPregunta = preguntasAct.map((p) => {

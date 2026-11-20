@@ -59,6 +59,14 @@ CREATE TABLE IF NOT EXISTS respuestas (
 );
 CREATE INDEX IF NOT EXISTS respuestas_pregunta_idx ON respuestas(pregunta_id);
 
+-- Temas que el colaborador ya envió (quedan bloqueados y puede ver su resultado)
+CREATE TABLE IF NOT EXISTS envios_tema (
+  colaborador_id INTEGER NOT NULL REFERENCES colaboradores(id) ON DELETE CASCADE,
+  tema_id        INTEGER NOT NULL REFERENCES temas(id) ON DELETE CASCADE,
+  enviado_en     TEXT NOT NULL,
+  PRIMARY KEY (colaborador_id, tema_id)
+);
+
 -- ===== Vistas de reporte (consultables desde el panel de D1 en Cloudflare) =====
 
 -- Una fila por colaborador y tema

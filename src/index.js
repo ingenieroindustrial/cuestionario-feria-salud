@@ -74,18 +74,22 @@ async function ingresar(req, env) {
 
 async function miCuestionario(req, env) {
   const s = await sesion(req, env);
-  const [cfg, colab, temas, preguntas, resp] = await Promise.all([
+  const [cfg, colab, temas, preguntas, resp, envios] = await Promise.all([
     config(env),
     env.DB.prepare('SELECT nombre, enviado_en FROM colaboradores WHERE id = ?').bind(s.colaborador_id).first(),
     env.DB.prepare('SELECT id, nombre, ciudad FROM temas ORDER BY orden').all(),
     env.DB.prepare('SELECT id, tema_id, enunciado, opciones FROM preguntas ORDER BY tema_id, orden').all(),
     env.DB.prepare('SELECT pregunta_id, opcion FROM respuestas WHERE colaborador_id = ?').bind(s.colaborador_id).all(),
+    env.DB.prepare('SELECT tema_id, enviado_en FROM envios_tema WHERE colaborador_id = ?').bind(s.colaborador_id).all(),
   ]);
   const mias = new Map(resp.results.map((r) => [r.pregunta_id, r.opcion]));
+  const enviados = new Map(envios.results.map((e) => [e.tema_id, e.enviado_en]));
+  const resultado = enviados.size || colab?.enviado_en ? await calcularResultado(env, s.colaborador_id) : null;
+  const resTema = new Map((resultado?.por_tema || []).map((t) => [t.id, t]));
   return json({
     nombre: colab?.nombre,
     enviado_en: colab?.enviado_en || null,
-    resultado: colab?.enviado_en ? await calcularResultado(env, s.colaborador_id) : null,
+    resultado: colab?.enviado_en ? resultado : null,
     titulo: cfg.titulo,
     inicio: cfg.inicio,
     cierre: cfg.cierre,
@@ -94,6 +98,8 @@ async function miCuestionario(req, env) {
       id: t.id,
       nombre: t.nombre,
       ciudad: t.ciudad || '',
+      enviado_en: enviados.get(t.id) || null,
+      resultado: enviados.has(t.id) ? resTema.get(t.id) : null,
       preguntas: preguntas.results
         .filter((p) => p.tema_id === t.id)
         .map((p) => ({ id: p.id, enunciado: p.enunciado, opciones: JSON.parse(p.opciones), respuesta: mias.get(p.id) ?? null })),
@@ -122,7 +128,7 @@ async function calcularResultado(env, colabId) {
       falladas.push({ enunciado: p.enunciado, tu_respuesta: r ? opciones[r.opcion] ?? null : null, correcta: opciones[p.correcta] });
     }
     correctas += ok;
-    return { nombre: t.nombre, ciudad: t.ciudad || '', correctas: ok, total: ps.length, falladas };
+    return { id: t.id, nombre: t.nombre, ciudad: t.ciudad || '', correctas: ok, total: ps.length, falladas };
   });
   return { correctas, total, porcentaje: total ? Math.round((100 * correctas) / total) : 0, por_tema };
 }
@@ -138,9 +144,44 @@ async function enviarCuestionario(req, env) {
     const { total } = await env.DB.prepare('SELECT COUNT(*) AS total FROM preguntas').first();
     const { hechas } = await env.DB.prepare('SELECT COUNT(*) AS hechas FROM respuestas WHERE colaborador_id = ?').bind(s.colaborador_id).first();
     if (hechas < total) throw new HttpError(400, 'INCOMPLETO', `Te faltan ${total - hechas} preguntas por responder antes de enviar.`);
-    await env.DB.prepare('UPDATE colaboradores SET enviado_en = ? WHERE id = ? AND enviado_en IS NULL').bind(t, s.colaborador_id).run();
+    await env.DB.batch([
+      env.DB.prepare('INSERT OR IGNORE INTO envios_tema (colaborador_id, tema_id, enviado_en) SELECT ?, id, ? FROM temas').bind(s.colaborador_id, t),
+      env.DB.prepare('UPDATE colaboradores SET enviado_en = ? WHERE id = ? AND enviado_en IS NULL').bind(t, s.colaborador_id),
+    ]);
   }
   return json({ ok: true, resultado: await calcularResultado(env, s.colaborador_id) });
+}
+
+// Envía un solo tema: queda bloqueado y el colaborador ve sus aciertos. Al enviar el último, queda enviado todo el cuestionario.
+async function enviarTema(req, env) {
+  const s = await sesion(req, env);
+  const { tema_id } = await leerJson(req);
+  const tid = Number(tema_id);
+  const tema = await env.DB.prepare('SELECT id FROM temas WHERE id = ?').bind(tid).first();
+  if (!tema) throw new HttpError(400, 'TEMA_INVALIDO', 'Tema inválido');
+  const ya = await env.DB.prepare('SELECT 1 FROM envios_tema WHERE colaborador_id = ? AND tema_id = ?').bind(s.colaborador_id, tid).first();
+  const t = ahora();
+  if (!ya) {
+    const cfg = await config(env);
+    if (t < cfg.inicio) throw new HttpError(403, 'NO_HA_INICIADO', 'El cuestionario todavía no ha abierto');
+    if (t > cfg.cierre) throw new HttpError(403, 'CERRADO', 'El plazo para responder ya terminó');
+    const { total, hechas } = await env.DB.prepare(
+      `SELECT COUNT(*) AS total, COUNT(r.pregunta_id) AS hechas FROM preguntas p
+       LEFT JOIN respuestas r ON r.pregunta_id = p.id AND r.colaborador_id = ? WHERE p.tema_id = ?`
+    ).bind(s.colaborador_id, tid).first();
+    if (hechas < total) throw new HttpError(400, 'INCOMPLETO', `Te faltan ${total - hechas} preguntas de este tema antes de enviarlo.`);
+    await env.DB.batch([
+      env.DB.prepare('INSERT OR IGNORE INTO envios_tema (colaborador_id, tema_id, enviado_en) VALUES (?, ?, ?)').bind(s.colaborador_id, tid, t),
+      // Si con este quedan enviados todos los temas, el cuestionario completo queda enviado
+      env.DB.prepare(
+        `UPDATE colaboradores SET enviado_en = ? WHERE id = ? AND enviado_en IS NULL
+         AND (SELECT COUNT(*) FROM envios_tema WHERE colaborador_id = ?) >= (SELECT COUNT(*) FROM temas)`
+      ).bind(t, s.colaborador_id, s.colaborador_id),
+    ]);
+  }
+  const res = await calcularResultado(env, s.colaborador_id);
+  const c = await env.DB.prepare('SELECT enviado_en FROM colaboradores WHERE id = ?').bind(s.colaborador_id).first();
+  return json({ ok: true, tema: res.por_tema.find((x) => x.id === tid), completo: !!c.enviado_en, resultado: c.enviado_en ? res : null });
 }
 
 async function guardarRespuesta(req, env) {
@@ -152,8 +193,10 @@ async function guardarRespuesta(req, env) {
   if (t > cfg.cierre) throw new HttpError(403, 'CERRADO', 'El plazo para responder ya terminó');
   const yo = await env.DB.prepare('SELECT enviado_en FROM colaboradores WHERE id = ?').bind(s.colaborador_id).first();
   if (yo?.enviado_en) throw new HttpError(403, 'ENVIADO', 'Ya enviaste tu cuestionario. Las respuestas no se pueden cambiar.');
-  const p = await env.DB.prepare('SELECT id, opciones, correcta FROM preguntas WHERE id = ?').bind(Number(pregunta_id)).first();
+  const p = await env.DB.prepare('SELECT id, tema_id, opciones, correcta FROM preguntas WHERE id = ?').bind(Number(pregunta_id)).first();
   if (!p) throw new HttpError(400, 'PREGUNTA_INVALIDA', 'Pregunta inválida');
+  const env_t = await env.DB.prepare('SELECT 1 FROM envios_tema WHERE colaborador_id = ? AND tema_id = ?').bind(s.colaborador_id, p.tema_id).first();
+  if (env_t) throw new HttpError(403, 'TEMA_ENVIADO', 'Ya enviaste este tema. Sus respuestas no se pueden cambiar.');
   const n = JSON.parse(p.opciones).length;
   const o = Number(opcion);
   if (!Number.isInteger(o) || o < 0 || o >= n) throw new HttpError(400, 'OPCION_INVALIDA', 'Opción inválida');
@@ -201,7 +244,8 @@ async function adminReporte(req, env) {
               (SELECT GROUP_CONCAT(x, ',') FROM (
                  SELECT p.tema_id || ':' || COUNT(*) || ':' || SUM(r.es_correcta) AS x
                  FROM respuestas r JOIN preguntas p ON p.id = r.pregunta_id
-                 WHERE r.colaborador_id = c.id GROUP BY p.tema_id)) AS g
+                 WHERE r.colaborador_id = c.id GROUP BY p.tema_id)) AS g,
+              (SELECT GROUP_CONCAT(tema_id, ',') FROM envios_tema WHERE colaborador_id = c.id) AS s
        FROM colaboradores c ORDER BY c.nombre`
     ).all(),
   ]);
@@ -289,7 +333,11 @@ async function adminRespuestas(req, env) {
 async function adminReabrir(req, env) {
   await sesion(req, env, true);
   const { documento } = await leerJson(req);
-  const r = await env.DB.prepare('UPDATE colaboradores SET enviado_en = NULL WHERE documento = ?').bind(limpiarDoc(documento)).run();
+  const doc = limpiarDoc(documento);
+  const [r] = await env.DB.batch([
+    env.DB.prepare('UPDATE colaboradores SET enviado_en = NULL WHERE documento = ?').bind(doc),
+    env.DB.prepare('DELETE FROM envios_tema WHERE colaborador_id = (SELECT id FROM colaboradores WHERE documento = ?)').bind(doc),
+  ]);
   if (!r.meta.changes) throw new HttpError(404, 'NO_EXISTE', 'No existe un colaborador con ese documento');
   return json({ ok: true });
 }
@@ -341,6 +389,7 @@ async function adminCargarPreguntas(req, env) {
   if (errores.length) throw new HttpError(400, 'DATOS', `Revisa las filas: ${errores.slice(0, 15).join(', ')}${errores.length > 15 ? '…' : ''}`);
   const stmts = [
     env.DB.prepare('DELETE FROM respuestas'),
+    env.DB.prepare('DELETE FROM envios_tema'),
     env.DB.prepare('UPDATE colaboradores SET enviado_en = NULL'),
     env.DB.prepare('DELETE FROM preguntas'),
     env.DB.prepare('DELETE FROM temas'),
@@ -375,6 +424,7 @@ const rutas = {
   'POST /api/respuesta': guardarRespuesta,
   'POST /api/salir': salir,
   'POST /api/enviar': enviarCuestionario,
+  'POST /api/enviar-tema': enviarTema,
   'POST /api/admin/ingresar': adminIngresar,
   'GET /api/admin/reporte': adminReporte,
   'POST /api/admin/plazo': adminPlazo,

@@ -23,7 +23,7 @@
   <main class="marco">
     <div class="tarjeta">
       <h1>Feria de la Salud</h1>
-      <p class="bajada">Responde 30 preguntas sobre 10 temas de salud. Puedes hacerlo por partes: cada respuesta se guarda en cuanto la marcas.</p>
+      <p class="bajada">Responde 30 preguntas sobre 10 temas de salud. Puedes hacerlo por partes: cada respuesta se guarda en cuanto la marcas, y cada tema lo envías cuando estés listo.</p>
       <form id="f-login" class="stack" style="margin-top:24px" novalidate>
         <div>
           <label class="campo" for="doc">Número de documento</label>
@@ -64,19 +64,17 @@
       <span id="plazo-txt"></span>
     </p>
     <div id="aviso-plazo" class="nota alerta hidden" role="status"></div>
-    <section id="fin" class="felicidades hidden" aria-live="polite">
+    <section id="acumulado" class="felicidades hidden" aria-live="polite">
       <img src="/marca/mascota-tapabocas-ok.png" alt="">
       <div>
-        <h2>Ya respondiste todas las preguntas</h2>
-        <p>Revisa lo que quieras y, cuando estés listo, envía el cuestionario para ver tu resultado. Después de enviarlo ya no podrás cambiar tus respuestas.</p>
-        <div id="env-err" class="nota error hidden" role="alert" style="margin-top:12px"></div>
-        <button class="btn" id="b-enviar" type="button" style="margin-top:14px">Enviar cuestionario</button>
+        <p class="muted small">Tu aprobación hasta ahora</p>
+        <div class="acum"><b id="acum-pct"></b><span id="acum-det"></span></div>
+        <button class="btn sec chico" id="b-ver-res" type="button" style="margin-top:12px">Ver mi resultado y lo que fallé</button>
       </div>
     </section>
-    <p id="falta-enviar" class="muted small hidden">Cuando respondas todas las preguntas podrás enviar el cuestionario y ver tu resultado.</p>
     <section>
       <h2>Tus temas</h2>
-      <p class="muted small" style="margin-top:4px">Cada círculo tiene 3 partes, una por pregunta. Se llena a medida que respondes.</p>
+      <p class="muted small" style="margin-top:4px">Responde las 3 preguntas de un tema y envíalo para ver cómo te fue. Puedes enviar cada tema por separado, en el orden que quieras.</p>
       <div class="pasaporte" id="temas"></div>
     </section>
   </main>
@@ -98,6 +96,18 @@
   <main class="cuerpo">
     <div id="aviso-tema" class="nota alerta hidden" role="status"></div>
     <form id="preguntas" onsubmit="return false"></form>
+    <section id="tema-envio" class="envio-tema hidden" aria-live="polite">
+      <div>
+        <h2 id="tema-envio-t"></h2>
+        <p class="muted" id="tema-envio-p"></p>
+      </div>
+      <div id="env-err" class="nota error hidden" role="alert"></div>
+      <button class="btn" id="b-enviar" type="button">Enviar este tema</button>
+    </section>
+    <section id="tema-res" class="hidden" aria-live="polite">
+      <h2>Tu resultado en este tema</h2>
+      <div id="tema-res-caja" class="resultado"></div>
+    </section>
     <nav class="navegacion" aria-label="Cambiar de tema">
       <button class="btn sec" id="b-ant" type="button">Tema anterior</button>
       <button class="btn" id="b-sig" type="button">Siguiente tema</button>
@@ -126,6 +136,7 @@
   </header>
   <main class="cuerpo">
     <p class="muted" id="res-enviado"></p>
+    <button class="btn sec" id="b-res-volver" type="button" style="margin-top:12px">Volver a mis temas</button>
     <section>
       <h2>Tu resultado por tema</h2>
       <div id="res-temas" class="resultado"></div>
@@ -136,8 +147,8 @@
 <!-- Confirmar envío -->
 <dialog id="dlg-enviar" aria-labelledby="dlg-enviar-t">
   <form method="dialog">
-    <h2 id="dlg-enviar-t">¿Enviar tu cuestionario?</h2>
-    <p class="muted">Después de enviarlo verás tu resultado y ya no podrás cambiar ninguna respuesta.</p>
+    <h2 id="dlg-enviar-t">¿Enviar este tema?</h2>
+    <p class="muted" id="dlg-enviar-p">Verás tu resultado del tema y ya no podrás cambiar sus respuestas.</p>
     <div class="acciones">
       <button class="btn sec" value="no" type="submit">Seguir revisando</button>
       <button class="btn" value="si" type="submit">Enviar</button>
@@ -206,19 +217,27 @@ function anillo(hechas, total, completo) {
   return `<div class="anillo" aria-hidden="true"><svg viewBox="0 0 56 56">${centro}${arcos}</svg><span class="num">${num}</span></div>`;
 }
 
+// Aprobación acumulada sobre los temas ya enviados
+function acumulado() {
+  const env = datos.temas.filter((t) => t.resultado);
+  const correctas = env.reduce((a, t) => a + t.resultado.correctas, 0), total = env.reduce((a, t) => a + t.resultado.total, 0);
+  return { temas: env.length, correctas, total, porcentaje: total ? Math.round(100 * correctas / total) : 0 };
+}
+
 function pintarTemas() {
-  let r = 0, total = 0, completos = 0;
-  for (const t of datos.temas) { const n = respondidas(t); r += n; total += t.preguntas.length; if (n === t.preguntas.length) completos++; }
+  let r = 0, total = 0;
+  for (const t of datos.temas) { r += respondidas(t); total += t.preguntas.length; }
+  const ac = acumulado();
   $('saludo').textContent = 'Hola, ' + (datos.nombre || '').split(' ')[0];
-  $('titulo').textContent = `${completos} de ${datos.temas.length} temas completos`;
+  $('titulo').textContent = `${ac.temas} de ${datos.temas.length} temas enviados`;
   $('prog-num').textContent = r;
   $('prog-txt').textContent = `de ${total} preguntas respondidas`;
   $('prog-bar').style.width = (total ? 100 * r / total : 0) + '%';
   $('prog-aria').setAttribute('aria-valuemax', total); $('prog-aria').setAttribute('aria-valuenow', r);
-  const terminado = total > 0 && r === total;
-  $('fin').classList.toggle('hidden', !terminado);
-  $('falta-enviar').classList.toggle('hidden', terminado);
-  $('zero-temas').src = terminado ? '/marca/mascota-caminando.png' : '/marca/mascota-portatil.png';
+  $('acumulado').classList.toggle('hidden', ac.temas === 0);
+  $('acum-pct').textContent = ac.porcentaje + '%';
+  $('acum-det').textContent = `Acertaste ${ac.correctas} de ${ac.total} preguntas en ${ac.temas} ${ac.temas === 1 ? 'tema enviado' : 'temas enviados'}`;
+  $('zero-temas').src = total > 0 && r === total ? '/marca/mascota-caminando.png' : '/marca/mascota-portatil.png';
 
   const est = estadoPlazo();
   $('plazo-txt').textContent = est === 'antes' ? `Abre el ${fmt(datos.inicio)}` : est === 'cerrado' ? `Cerró el ${fmt(datos.cierre)}` : `Tienes hasta el ${fmt(datos.cierre)}`;
@@ -230,15 +249,16 @@ function pintarTemas() {
   const cont = $('temas');
   cont.innerHTML = '';
   datos.temas.forEach((t, i) => {
-    const n = respondidas(t), tot = t.preguntas.length, ok = n === tot;
+    const n = respondidas(t), tot = t.preguntas.length, env = !!t.resultado;
+    const estado = env ? `Enviado · ${t.resultado.correctas} de ${t.resultado.total} correctas` : n === tot ? 'Listo para enviar' : n === 0 ? 'Sin empezar' : `Te faltan ${tot - n}`;
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = 'sello' + (ok ? ' completo' : '');
-    b.innerHTML = `${anillo(n, tot, ok)}<div><div class="ciudad"></div><div class="nombre"></div><div class="estado">${ok ? 'Completo' : n === 0 ? 'Sin empezar' : `Te faltan ${tot - n}`}</div></div>
+    b.className = 'sello' + (env ? ' completo' : n === tot ? ' listo' : '');
+    b.innerHTML = `${anillo(n, tot, env)}<div><div class="ciudad"></div><div class="nombre"></div><div class="estado">${estado}</div></div>
       <svg class="flecha" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>`;
     b.querySelector('.nombre').textContent = t.nombre;
     b.querySelector('.ciudad').textContent = t.ciudad;
-    b.setAttribute('aria-label', `${t.nombre}${t.ciudad ? ', ' + t.ciudad : ''}: ${ok ? 'completo' : `${n} de ${tot} preguntas respondidas`}`);
+    b.setAttribute('aria-label', `${t.nombre}${t.ciudad ? ', ' + t.ciudad : ''}: ${estado}`);
     b.onclick = () => abrirTema(i);
     cont.appendChild(b);
   });
@@ -256,6 +276,7 @@ function abrirTema(i) {
   $('tema-nombre').textContent = t.nombre;
   document.title = `${t.nombre} · Feria de la Salud`;
   const est = estadoPlazo();
+  const bloqueado = est !== 'abierto' || !!t.resultado;
   const av = $('aviso-tema');
   av.classList.toggle('hidden', est === 'abierto');
   av.textContent = est === 'antes' ? 'El cuestionario todavía no ha abierto.' : 'El plazo terminó. Ya no puedes cambiar tus respuestas.';
@@ -279,7 +300,7 @@ function abrirTema(i) {
       const inp = document.createElement('input');
       inp.type = 'radio'; inp.name = 'p' + p.id; inp.value = idx;
       inp.checked = p.respuesta === idx;
-      inp.disabled = est !== 'abierto';
+      inp.disabled = bloqueado;
       inp.onchange = () => responder(p, idx, g);
       const sp = document.createElement('span');
       sp.dataset.letra = LETRAS[idx];
@@ -291,6 +312,7 @@ function abrirTema(i) {
     cont.appendChild(fs);
   });
   pintarPuntos();
+  pintarEnvioTema();
   $('b-ant').disabled = i === 0;
   $('b-sig').textContent = i === datos.temas.length - 1 ? 'Ver mis temas' : 'Siguiente tema';
   vista('v-tema');
@@ -303,10 +325,33 @@ function marcarEstado(g, estado, msg) {
   g.append(document.createTextNode(txt));
 }
 
+// Debajo de las preguntas: botón para enviar el tema, o su resultado si ya se envió
+function pintarEnvioTema() {
+  const t = datos.temas[temaActual];
+  const n = respondidas(t), tot = t.preguntas.length;
+  $('tema-res').classList.toggle('hidden', !t.resultado);
+  if (t.resultado) {
+    $('tema-res-caja').innerHTML = '';
+    $('tema-res-caja').appendChild(cajaTema(t.resultado));
+  }
+  const mostrar = !t.resultado && estadoPlazo() === 'abierto';
+  $('tema-envio').classList.toggle('hidden', !mostrar);
+  if (!mostrar) return;
+  const listo = n === tot;
+  $('tema-envio').classList.toggle('listo', listo);
+  $('tema-envio-t').textContent = listo ? '¿Listo con este tema?' : 'Envía el tema cuando termines';
+  $('tema-envio-p').textContent = listo
+    ? 'Al enviarlo verás cuántas acertaste y la respuesta correcta de las que fallaste. Después ya no podrás cambiarlas.'
+    : `Te ${tot - n === 1 ? 'falta 1 pregunta' : `faltan ${tot - n} preguntas`} de este tema para poder enviarlo.`;
+  $('b-enviar').disabled = !listo;
+  $('env-err').classList.add('hidden');
+}
+
 async function responder(p, idx, g) {
   p.respuesta = idx;
   pendientes[p.id] = idx; guardarPend();
   pintarPuntos();
+  pintarEnvioTema();
   marcarEstado(g, 'guardando');
   const ok = await enviar(p.id, idx);
   if (pendientes[p.id] !== undefined && pendientes[p.id] !== idx) return; // hubo un clic más reciente
@@ -323,7 +368,7 @@ async function enviar(id, idx) {
     return true;
   } catch (e) {
     if (e.status === 401) { sesionVencida(); return 'fatal'; }
-    if (e.codigo === 'CERRADO' || e.codigo === 'NO_HA_INICIADO' || e.codigo === 'ENVIADO') {
+    if (e.codigo === 'CERRADO' || e.codigo === 'NO_HA_INICIADO' || e.codigo === 'ENVIADO' || e.codigo === 'TEMA_ENVIADO') {
       delete pendientes[id]; guardarPend();
       mostrarRed(e.message); setTimeout(cargar, 1500); return 'fatal';
     }
@@ -363,15 +408,27 @@ function sesionVencida() {
 }
 
 function pintarResultado() {
-  const r = datos.resultado;
+  const r = acumulado();
+  const todos = r.temas === datos.temas.length;
   $('res-nombre').textContent = datos.nombre;
   $('res-pct').textContent = r.porcentaje + '%';
-  $('res-detalle').textContent = `Acertaste ${r.correctas} de ${r.total} preguntas`;
+  $('res-detalle').textContent = todos ? `Acertaste ${r.correctas} de ${r.total} preguntas`
+    : `Acertaste ${r.correctas} de ${r.total} preguntas en ${r.temas} de ${datos.temas.length} temas enviados`;
   $('res-zero').src = r.porcentaje >= 80 ? '/marca/mascota-celebrando.png' : '/marca/mascota-presentando.png';
-  $('res-enviado').textContent = `Gracias por participar en la Feria de la Salud. Enviaste tu cuestionario el ${fmt(datos.enviado_en)}`;
+  const abierto = estadoPlazo() === 'abierto';
+  $('res-enviado').textContent = todos ? `Gracias por participar en la Feria de la Salud. Enviaste tu último tema el ${fmt(datos.enviado_en)}.`
+    : abierto ? `Tu aprobación se calcula con los temas que ya enviaste. Te ${datos.temas.length - r.temas === 1 ? 'falta 1 tema' : `faltan ${datos.temas.length - r.temas} temas`}; tienes hasta el ${fmt(datos.cierre)}.`
+    : 'Gracias por participar en la Feria de la Salud. Tu aprobación se calculó con los temas que enviaste antes del cierre.';
+  $('b-res-volver').classList.toggle('hidden', todos);
   const cont = $('res-temas');
   cont.innerHTML = '';
-  for (const t of r.por_tema) {
+  for (const t of datos.temas) if (t.resultado) cont.appendChild(cajaTema(t.resultado));
+  document.title = 'Tu resultado · Feria de la Salud';
+  vista('v-resultado');
+}
+
+function cajaTema(t) {
+  {
     const d = document.createElement('div');
     const perfecto = t.falladas.length === 0;
     d.className = 'res-tema' + (perfecto ? ' perfecto' : '');
@@ -392,10 +449,8 @@ function pintarResultado() {
       }
       d.appendChild(ul);
     }
-    cont.appendChild(d);
+    return d;
   }
-  document.title = 'Tu resultado · Feria de la Salud';
-  vista('v-resultado');
 }
 
 $('b-enviar').onclick = () => { $('dlg-enviar').returnValue = ''; $('dlg-enviar').showModal(); };
@@ -406,13 +461,19 @@ $('dlg-enviar').onclose = async () => {
   try {
     if (Object.keys(pendientes).length) await vaciarPendientes();
     if (Object.keys(pendientes).length) throw new Error('Hay respuestas sin guardar por falta de conexión. Espera a que vuelva el internet e inténtalo de nuevo.');
-    await api('/api/enviar', {});
-    await cargar();
+    const t = datos.temas[temaActual];
+    const r = await api('/api/enviar-tema', { tema_id: t.id });
+    t.resultado = r.tema; t.enviado_en = new Date().toISOString();
+    if (r.completo) { datos.enviado_en = new Date().toISOString(); return pintarResultado(); }
+    abrirTema(temaActual);
+    $('tema-res').scrollIntoView({ behavior: 'smooth', block: 'start' });
   } catch (e) {
     if (e.status === 401) return sesionVencida();
     $('env-err').textContent = e.message; $('env-err').classList.remove('hidden');
-  } finally { b.disabled = false; b.textContent = 'Enviar cuestionario'; }
+  } finally { b.disabled = false; b.textContent = 'Enviar este tema'; }
 };
+$('b-ver-res').onclick = pintarResultado;
+$('b-res-volver').onclick = () => { document.title = 'Feria de la Salud · Medical'; pintarTemas(); vista('v-temas'); };
 
 async function cargar() {
   if (!token) return vista('v-login');
@@ -424,7 +485,8 @@ async function cargar() {
     // Respuestas que quedaron pendientes en este dispositivo: se muestran y se reenvían
     for (const t of datos.temas) for (const p of t.preguntas) if (pendientes[p.id] !== undefined) p.respuesta = pendientes[p.id];
     if (Object.keys(pendientes).length) vaciarPendientes().then(() => Object.keys(pendientes).length && programarReintento());
-    if (datos.enviado_en && datos.resultado) { pendientes = {}; guardarPend(); return pintarResultado(); }
+    const ac = acumulado();
+    if (ac.temas && (ac.temas === datos.temas.length || estadoPlazo() === 'cerrado')) { pendientes = {}; guardarPend(); return pintarResultado(); }
     document.title = 'Feria de la Salud · Medical';
     pintarTemas();
     vista('v-temas');

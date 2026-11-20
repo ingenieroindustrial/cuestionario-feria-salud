@@ -62,7 +62,7 @@ Al ingresar, cada persona escribe su número de identificación. Si sus datos no
 - Por seguridad, la app nunca vuelve a mostrar el celular ni el cumpleaños guardados: solo indica que existen.
 - Dentro de la app, el botón **Mis datos** permite revisarlos y corregirlos.
 
-**Pendiente de completar en `/privacidad.html`** (marcado en amarillo): NIT, dirección, correo y teléfono de contacto para datos personales. La política ya enlaza a https://clinicamedical.dataprotected.co/.
+**Pendiente de completar en `/privacidad.html`** (marcado en amarillo): correo y teléfono de contacto para datos personales. La política ya enlaza a https://clinicamedical.dataprotected.co/.
 
 ## Datos en D1
 

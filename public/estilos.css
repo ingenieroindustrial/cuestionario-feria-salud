@@ -266,6 +266,23 @@ dialog .acciones { display: flex; gap: 10px; justify-content: flex-end; }
 .pregs p { margin-bottom: 12px; }
 .pregs .ok { color: var(--exito); font-weight: 700; }
 
+/* ---------- Resultado ---------- */
+.nota-final { display: flex; align-items: baseline; gap: 10px; color: #fff; margin: 6px 0 4px; }
+.nota-final b { font-family: var(--f-titulo); font-size: 4rem; font-weight: 700; line-height: 1; letter-spacing: -.03em; }
+.nota-final span { color: #c9d7f0; font-size: 1.05rem; }
+.resultado { display: grid; gap: 12px; margin-top: 12px; }
+.res-tema { background: var(--papel); border: 1.5px solid var(--linea); border-radius: var(--r-m); padding: 14px 16px; }
+.res-tema.perfecto { border-color: var(--azul); background: linear-gradient(180deg, var(--papel), var(--cielo)); }
+.res-cab { display: flex; gap: 12px; align-items: baseline; justify-content: space-between; }
+.res-nombre { font-family: var(--f-titulo); font-weight: 600; }
+.res-marca { font-weight: 700; color: var(--tinta-2); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.res-tema.perfecto .res-marca { color: var(--azul); }
+.res-tema ul { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 10px; }
+.res-tema li { border-left: 3px solid var(--rosa); background: var(--rosa-suave); border-radius: 0 var(--r-s) var(--r-s) 0; padding: 10px 12px; }
+.res-preg { font-weight: 600; }
+.res-tuya { color: #9c2f45; font-size: .92rem; margin-top: 4px; }
+.res-ok { color: var(--exito); font-size: .92rem; font-weight: 600; margin-top: 2px; }
+
 @media (max-width: 640px) {
   .filtros { grid-template-columns: 1fr; }
   .saludo .zero { height: 104px; }

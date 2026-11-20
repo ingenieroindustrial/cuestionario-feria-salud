@@ -80,7 +80,7 @@
           <input id="buscar" type="search" placeholder="Buscar por nombre, documento o área" aria-label="Buscar colaborador">
           <select id="f-estado" aria-label="Filtrar por estado">
             <option value="">Todos los estados</option>
-            <option>No ha iniciado</option><option>En progreso</option><option>Terminó</option>
+            <option>No ha iniciado</option><option>En progreso</option><option>Respondió todo sin enviar</option><option>Envió</option>
           </select>
           <select id="f-area" aria-label="Filtrar por área"><option value="">Todas las áreas</option></select>
         </div>
@@ -251,7 +251,8 @@ function resumir(c) {
     if (t.r >= t.n) { completos++; if (t.c < t.n) errores.push(rep.temas[i].nombre); }
     else faltan.push(rep.temas[i].nombre);
   });
-  return { r, n, ok, completos, faltan, errores, estado: r === 0 ? 'No ha iniciado' : r < n ? 'En progreso' : 'Terminó' };
+  const estado = c.enviado_en ? 'Envió' : r === 0 ? 'No ha iniciado' : r < n ? 'En progreso' : 'Respondió todo sin enviar';
+  return { r, n, ok, completos, faltan, errores, estado, aprob: n ? pct(ok, n) : 0 };
 }
 
 async function cargar(silencioso) {
@@ -261,7 +262,7 @@ async function cargar(silencioso) {
     rep = { config: crudo.config, temas: crudo.temas };
     rep.colaboradores = crudo.colaboradores.map((x) => {
       const m = new Map((x.g || '').split(',').filter(Boolean).map((t) => { const [id, r, c] = t.split(':').map(Number); return [id, { r, c }]; }));
-      return { documento: x.d, nombre: x.n, area: x.a || '', ultimo_ingreso: x.i, ultima_respuesta: x.u,
+      return { documento: x.d, nombre: x.n, area: x.a || '', ultimo_ingreso: x.i, ultima_respuesta: x.u, enviado_en: x.e || null,
         por_tema: rep.temas.map((t) => ({ r: m.get(t.id)?.r || 0, c: m.get(t.id)?.c || 0, n: t.n })) };
     });
     rep.colaboradores.forEach((c) => (c.s = resumir(c)));
@@ -282,10 +283,11 @@ function pintar() {
   const respTot = cs.reduce((a, c) => a + c.s.r, 0), okTot = cs.reduce((a, c) => a + c.s.ok, 0);
   $('kpis').innerHTML = [
     [tot, 'colaboradores registrados'],
-    [cuenta('Terminó'), 'terminaron', tot],
+    [cuenta('Envió'), 'enviaron', tot],
+    [cuenta('Respondió todo sin enviar'), 'respondieron todo sin enviar', tot],
     [cuenta('En progreso'), 'van a medias', tot],
     [cuenta('No ha iniciado'), 'no han empezado', tot],
-    [respTot ? pct(okTot, respTot) + '%' : '–', 'de respuestas correctas'],
+    [(() => { const e = cs.filter((c) => c.enviado_en); return e.length ? Math.round(e.reduce((a, c) => a + c.s.aprob, 0) / e.length) + '%' : '–'; })(), 'aprobación promedio de quienes enviaron'],
   ].map(([v, l, d]) => `<div class="indicador"><div class="v">${v}</div><div class="l">${l}${d ? ` <span class="pct">${pct(v, d)}%</span>` : ''}</div></div>`).join('');
 
   $('cobertura').innerHTML = tot === 0 ? '<p class="muted">Cuando agregues colaboradores verás aquí su avance por tema.</p>' : rep.temas.map((tm, i) => {
@@ -313,16 +315,16 @@ function pintarTabla() {
   const lista = rep.colaboradores.filter((c) => (!e || c.s.estado === e) && (!a || c.area === a) && coincide(c, q));
   const max = 500;
   $('conteo').textContent = `${lista.length} colaboradores` + (lista.length > max ? `. Se muestran los primeros ${max}; usa el buscador o descarga el Excel.` : '');
-  const cab = `<thead><tr><th>Documento</th><th>Nombre</th><th>Área</th><th>Estado</th><th class="num">Respondidas</th><th class="num">Aciertos</th>
+  const cab = `<thead><tr><th>Documento</th><th>Nombre</th><th>Área</th><th>Estado</th><th class="num">Respondidas</th><th class="num">Aprobación</th>
     ${rep.temas.map((t, i) => `<th title="${esc(t.nombre)}" class="num">T${i + 1}</th>`).join('')}<th>Le faltan</th><th>Última respuesta</th></tr></thead>`;
   const filas = lista.slice(0, max).map((c) => {
-    const pill = c.s.estado === 'Terminó' ? 'si' : c.s.estado === 'En progreso' ? 'pr' : 'no';
+    const pill = c.s.estado === 'Envió' ? 'si' : c.s.estado === 'No ha iniciado' ? 'no' : 'pr';
     const celdas = c.por_tema.map((t, i) => {
       const k = t.r === 0 ? 0 : t.r < t.n ? 1 : t.c < t.n ? 2 : 3;
       return `<td class="num"><span class="cel c${k}" title="${esc(rep.temas[i].nombre)}: ${t.r} de ${t.n} respondidas, ${t.c} correctas">${t.r}${k === 3 ? '✓' : ''}</span></td>`;
     }).join('');
     return `<tr><td>${esc(c.documento)}</td><td>${esc(c.nombre)}</td><td>${esc(c.area)}</td><td><span class="pill ${pill}">${c.s.estado}</span></td>
-      <td class="num">${c.s.r} / ${c.s.n}</td><td class="num">${c.s.r ? pct(c.s.ok, c.s.r) + '%' : '–'}</td>${celdas}
+      <td class="num">${c.s.r} / ${c.s.n}</td><td class="num">${c.enviado_en ? c.s.aprob + '%' : '–'}</td>${celdas}
       <td style="white-space:normal;min-width:240px">${c.s.faltan.length === rep.temas.length ? 'Todos los temas' : esc(c.s.faltan.join(', '))}</td><td>${fmt(c.ultima_respuesta)}</td></tr>`;
   }).join('');
   $('tabla').innerHTML = cab + '<tbody>' + (filas || `<tr><td colspan="${8 + rep.temas.length}" class="vacio">No hay colaboradores con ese filtro.</td></tr>`) + '</tbody>';
@@ -340,8 +342,8 @@ function pintarColaboradores() {
   const max = 300;
   $('tabla-c').innerHTML = `<thead><tr><th>Documento</th><th>Nombre</th><th>Área</th><th>Avance</th><th class="num"><span class="sr">Acciones</span></th></tr></thead><tbody>` +
     (lista.slice(0, max).map((c) => `<tr><td>${esc(c.documento)}</td><td>${esc(c.nombre)}</td><td>${esc(c.area) || '<span class="muted">Sin área</span>'}</td>
-      <td>${c.s.r} de ${c.s.n} preguntas</td>
-      <td class="acciones"><button class="btn fantasma chico" data-ed="${esc(c.documento)}" type="button">Editar</button>
+      <td>${c.enviado_en ? `Envió · ${c.s.aprob}%` : `${c.s.r} de ${c.s.n} preguntas`}</td>
+      <td class="acciones">${c.enviado_en ? `<button class="btn fantasma chico" data-reabrir="${esc(c.documento)}" type="button">Habilitar de nuevo</button>` : ''}<button class="btn fantasma chico" data-ed="${esc(c.documento)}" type="button">Editar</button>
       <button class="btn fantasma chico" style="color:var(--error)" data-del="${esc(c.documento)}" type="button">Eliminar</button></td></tr>`).join('') ||
       '<tr><td colspan="5" class="vacio">Nadie coincide con esa búsqueda.</td></tr>') +
     (lista.length > max ? `<tr><td colspan="5" class="muted small">Se muestran ${max} de ${lista.length}. Usa el buscador para encontrar a alguien.</td></tr>` : '') + '</tbody>';
@@ -370,7 +372,15 @@ $('f-colab').onsubmit = async (ev) => {
   b.disabled = false;
 };
 $('tabla-c').onclick = async (ev) => {
-  const ed = ev.target.closest('[data-ed]'), del = ev.target.closest('[data-del]');
+  const ed = ev.target.closest('[data-ed]'), del = ev.target.closest('[data-del]'), re = ev.target.closest('[data-reabrir]');
+  if (re) {
+    const c = rep.colaboradores.find((x) => x.documento === re.dataset.reabrir);
+    const si = await confirmar(`¿Habilitar de nuevo a ${c.nombre}?`, 'Podrá volver a cambiar sus respuestas y enviar otra vez. Sus respuestas actuales se conservan.', 'Habilitar');
+    if (!si) return;
+    try { await api('/api/admin/reabrir', { documento: c.documento }); nota('c-fallo', ''); nota('c-ok', `${c.nombre} puede volver a responder.`); await cargar(true); }
+    catch (e) { nota('c-fallo', e.message); }
+    return;
+  }
   if (ed) abrirColab(rep.colaboradores.find((c) => c.documento === ed.dataset.ed));
   if (del) {
     const c = rep.colaboradores.find((x) => x.documento === del.dataset.del);
@@ -388,35 +398,80 @@ $('b-abrir-excel').onclick = () => {
 };
 
 // ------------------------------------------------ Excel
-function exportar() {
-  const temas = rep.temas.map((t) => t.nombre);
-  const resumen = rep.colaboradores.map((c) => {
-    const o = {
-      Documento: c.documento, Nombre: c.nombre, 'Área': c.area, Estado: c.s.estado,
-      'Preguntas respondidas': c.s.r, 'Preguntas totales': c.s.n, 'Respuestas correctas': c.s.ok,
-      '% aciertos': c.s.r ? pct(c.s.ok, c.s.r) : '',
-      'Temas completos': c.s.completos, 'Temas que le faltan': c.s.faltan.join(', '), 'Temas con errores': c.s.errores.join(', '),
-    };
-    c.por_tema.forEach((t, i) => (o[temas[i]] = t.r === 0 ? 'Sin responder' : t.r < t.n ? `Incompleto (${t.r}/${t.n})` : t.c < t.n ? `Completo con errores (${t.c}/${t.n})` : 'Completo, todo correcto'));
-    o['Último ingreso'] = c.ultimo_ingreso ? new Date(c.ultimo_ingreso) : '';
-    o['Última respuesta'] = c.ultima_respuesta ? new Date(c.ultima_respuesta) : '';
-    return o;
-  });
-  const detalle = [];
-  rep.colaboradores.forEach((c) => c.por_tema.forEach((t, i) => detalle.push({
-    Documento: c.documento, Nombre: c.nombre, 'Área': c.area, Tema: temas[i], Respondidas: t.r, Preguntas: t.n, Correctas: t.c,
-    Estado: t.r === 0 ? 'Sin responder' : t.r < t.n ? 'Incompleto' : t.c < t.n ? 'Completo con errores' : 'Completo, todo correcto',
-  })));
-  const porTema = rep.temas.map((tm, i) => {
-    const cs = rep.colaboradores, comp = cs.filter((c) => c.por_tema[i].r >= c.por_tema[i].n).length;
-    const resp = cs.reduce((a, c) => a + c.por_tema[i].r, 0), bien = cs.reduce((a, c) => a + c.por_tema[i].c, 0);
-    return { Tema: tm.nombre, 'Colaboradores que lo completaron': comp, 'Total colaboradores': cs.length, '% cobertura': pct(comp, cs.length), '% aciertos': pct(bien, resp) };
-  });
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(resumen), 'Por colaborador');
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(detalle), 'Detalle por tema');
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(porTema), 'Cobertura por tema');
-  XLSX.writeFile(wb, `avance-feria-salud-${new Date().toISOString().slice(0, 10)}.xlsx`);
+async function traerRespuestas() {
+  const todas = [];
+  let desde = 0;
+  do {
+    const r = await api('/api/admin/respuestas?desde=' + desde);
+    todas.push(...r.filas);
+    desde = r.siguiente;
+  } while (desde);
+  return todas;
+}
+
+async function exportar() {
+  const b = $('b-export'), txt = b.innerHTML;
+  b.disabled = true; b.textContent = 'Preparando Excel…';
+  try {
+    if (!preguntasAct.length) await pintarPreguntas();
+    const respuestas = await traerRespuestas();
+    const porColab = new Map();
+    for (const [d, p, o, ok] of respuestas) { if (!porColab.has(d)) porColab.set(d, new Map()); porColab.get(d).set(p, { o, ok }); }
+    const L = 'ABCDEFGH';
+    // número de pregunta dentro de su tema: "T1-P2"
+    const etiqueta = new Map(); let tema = '', k = 0, t = 0;
+    for (const p of preguntasAct) { if (p.tema !== tema) { tema = p.tema; k = 0; t++; } k++; etiqueta.set(p.id, `T${t}-P${k}`); }
+    const temas = rep.temas.map((x) => x.nombre);
+
+    const resumen = rep.colaboradores.map((c) => {
+      const mias = porColab.get(c.documento) || new Map();
+      const malas = preguntasAct.filter((p) => mias.has(p.id) && !mias.get(p.id).ok).map((p) => etiqueta.get(p.id));
+      const o = {
+        Documento: c.documento, Nombre: c.nombre, 'Área': c.area, Estado: c.s.estado,
+        'Fecha de envío': c.enviado_en ? new Date(c.enviado_en) : '',
+        '% aprobación': c.s.aprob, 'Respuestas correctas': c.s.ok, 'Preguntas respondidas': c.s.r, 'Preguntas totales': c.s.n,
+        'Preguntas incorrectas': malas.join(', '),
+        'Temas que le faltan': c.s.faltan.join(', '), 'Temas con errores': c.s.errores.join(', '),
+      };
+      for (const p of preguntasAct) { const r = mias.get(p.id); o[etiqueta.get(p.id)] = !r ? 'Sin responder' : r.ok ? 'Correcta' : 'Incorrecta'; }
+      o['Último ingreso'] = c.ultimo_ingreso ? new Date(c.ultimo_ingreso) : '';
+      return o;
+    });
+
+    const detalle = [];
+    for (const c of rep.colaboradores) {
+      const mias = porColab.get(c.documento) || new Map();
+      for (const p of preguntasAct) {
+        const r = mias.get(p.id);
+        detalle.push({
+          Documento: c.documento, Nombre: c.nombre, 'Área': c.area, Tema: p.tema, 'Código': etiqueta.get(p.id), Pregunta: p.enunciado,
+          'Respuesta dada': r ? `${L[r.o]}) ${p.opciones[r.o] ?? ''}` : '', 'Respuesta correcta': `${L[p.correcta]}) ${p.opciones[p.correcta]}`,
+          Resultado: !r ? 'Sin responder' : r.ok ? 'Correcta' : 'Incorrecta',
+        });
+      }
+    }
+
+    const porTema = rep.temas.map((tm, i) => {
+      const cs = rep.colaboradores, comp = cs.filter((c) => c.por_tema[i].r >= c.por_tema[i].n).length;
+      const resp = cs.reduce((a, c) => a + c.por_tema[i].r, 0), bien = cs.reduce((a, c) => a + c.por_tema[i].c, 0);
+      return { Tema: tm.nombre, 'Colaboradores que lo completaron': comp, 'Total colaboradores': cs.length, '% cobertura': pct(comp, cs.length), '% aciertos': pct(bien, resp) };
+    });
+
+    const porPregunta = preguntasAct.map((p) => {
+      let resp = 0, bien = 0;
+      for (const m of porColab.values()) { const r = m.get(p.id); if (r) { resp++; if (r.ok) bien++; } }
+      return { 'Código': etiqueta.get(p.id), Tema: p.tema, Pregunta: p.enunciado, 'Respuesta correcta': `${L[p.correcta]}) ${p.opciones[p.correcta]}`,
+        Respondieron: resp, Acertaron: bien, Fallaron: resp - bien, '% aciertos': pct(bien, resp) };
+    });
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(resumen), 'Por colaborador');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(detalle), 'Respuestas por pregunta');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(porPregunta), 'Aciertos por pregunta');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(porTema), 'Cobertura por tema');
+    XLSX.writeFile(wb, `resultados-feria-salud-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  } catch (e) { $('conteo').textContent = 'No se pudo generar el Excel: ' + e.message; }
+  finally { b.disabled = false; b.innerHTML = txt; }
 }
 
 function leerHoja(file) {

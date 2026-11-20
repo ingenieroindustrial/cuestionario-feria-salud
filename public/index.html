@@ -65,12 +65,15 @@
     </p>
     <div id="aviso-plazo" class="nota alerta hidden" role="status"></div>
     <section id="fin" class="felicidades hidden" aria-live="polite">
-      <img src="/marca/mascota-celebrando.png" alt="ZERO celebrando">
+      <img src="/marca/mascota-tapabocas-ok.png" alt="">
       <div>
-        <h2>¡Completaste los 10 temas!</h2>
-        <p>Gracias por participar en la Feria de la Salud. Mientras el cuestionario esté abierto puedes volver a cualquier tema y cambiar tus respuestas.</p>
+        <h2>Ya respondiste todas las preguntas</h2>
+        <p>Revisa lo que quieras y, cuando estés listo, envía el cuestionario para ver tu resultado. Después de enviarlo ya no podrás cambiar tus respuestas.</p>
+        <div id="env-err" class="nota error hidden" role="alert" style="margin-top:12px"></div>
+        <button class="btn" id="b-enviar" type="button" style="margin-top:14px">Enviar cuestionario</button>
       </div>
     </section>
+    <p id="falta-enviar" class="muted small hidden">Cuando respondas todas las preguntas podrás enviar el cuestionario y ver tu resultado.</p>
     <section>
       <h2>Tus temas</h2>
       <p class="muted small" style="margin-top:4px">Cada círculo tiene 3 partes, una por pregunta. Se llena a medida que respondes.</p>
@@ -102,6 +105,46 @@
   </main>
 </div>
 
+<!-- ================= Resultado ================= -->
+<div id="v-resultado" class="hidden">
+  <header class="banda">
+    <div class="contenido">
+      <div class="barra">
+        <span class="logo-chip"><img src="/marca/logo.png" alt="Medical"></span>
+        <span class="spacer"></span>
+        <button class="btn claro chico" id="b-salir2" type="button">Salir</button>
+      </div>
+      <div class="saludo">
+        <div>
+          <p class="sub" id="res-nombre"></p>
+          <div class="nota-final"><b id="res-pct"></b><span>de aprobación</span></div>
+          <p class="sub" id="res-detalle"></p>
+        </div>
+        <img class="zero" id="res-zero" src="/marca/mascota-celebrando.png" alt="">
+      </div>
+    </div>
+  </header>
+  <main class="cuerpo">
+    <p class="muted" id="res-enviado"></p>
+    <section>
+      <h2>Tu resultado por tema</h2>
+      <div id="res-temas" class="resultado"></div>
+    </section>
+  </main>
+</div>
+
+<!-- Confirmar envío -->
+<dialog id="dlg-enviar" aria-labelledby="dlg-enviar-t">
+  <form method="dialog">
+    <h2 id="dlg-enviar-t">¿Enviar tu cuestionario?</h2>
+    <p class="muted">Después de enviarlo verás tu resultado y ya no podrás cambiar ninguna respuesta.</p>
+    <div class="acciones">
+      <button class="btn sec" value="no" type="submit">Seguir revisando</button>
+      <button class="btn" value="si" type="submit">Enviar</button>
+    </div>
+  </form>
+</dialog>
+
 <div id="cargando" class="vacio" style="margin-top:20vh" role="status">Cargando…</div>
 <div id="red" class="toast hidden" role="status" aria-live="polite"></div>
 
@@ -124,7 +167,7 @@ const fmt = (iso) => new Date(iso).toLocaleString('es-CO', { weekday: 'long', da
 const guardarPend = () => ls.set(LS_PEND, JSON.stringify(pendientes));
 
 function vista(id) {
-  for (const v of ['v-login', 'v-temas', 'v-tema', 'cargando']) $(v).classList.toggle('hidden', v !== id);
+  for (const v of ['v-login', 'v-temas', 'v-tema', 'v-resultado', 'cargando']) $(v).classList.toggle('hidden', v !== id);
   window.scrollTo(0, 0);
 }
 
@@ -174,7 +217,8 @@ function pintarTemas() {
   $('prog-aria').setAttribute('aria-valuemax', total); $('prog-aria').setAttribute('aria-valuenow', r);
   const terminado = total > 0 && r === total;
   $('fin').classList.toggle('hidden', !terminado);
-  $('zero-temas').src = terminado ? '/marca/mascota-tapabocas-ok.png' : '/marca/mascota-portatil.png';
+  $('falta-enviar').classList.toggle('hidden', terminado);
+  $('zero-temas').src = terminado ? '/marca/mascota-caminando.png' : '/marca/mascota-portatil.png';
 
   const est = estadoPlazo();
   $('plazo-txt').textContent = est === 'antes' ? `Abre el ${fmt(datos.inicio)}` : est === 'cerrado' ? `Cerró el ${fmt(datos.cierre)}` : `Tienes hasta el ${fmt(datos.cierre)}`;
@@ -278,7 +322,7 @@ async function enviar(id, idx) {
     return true;
   } catch (e) {
     if (e.status === 401) { sesionVencida(); return 'fatal'; }
-    if (e.codigo === 'CERRADO' || e.codigo === 'NO_HA_INICIADO') {
+    if (e.codigo === 'CERRADO' || e.codigo === 'NO_HA_INICIADO' || e.codigo === 'ENVIADO') {
       delete pendientes[id]; guardarPend();
       mostrarRed(e.message); setTimeout(cargar, 1500); return 'fatal';
     }
@@ -317,6 +361,57 @@ function sesionVencida() {
   vista('v-login');
 }
 
+function pintarResultado() {
+  const r = datos.resultado;
+  $('res-nombre').textContent = datos.nombre;
+  $('res-pct').textContent = r.porcentaje + '%';
+  $('res-detalle').textContent = `Acertaste ${r.correctas} de ${r.total} preguntas`;
+  $('res-zero').src = r.porcentaje >= 80 ? '/marca/mascota-celebrando.png' : '/marca/mascota-presentando.png';
+  $('res-enviado').textContent = `Gracias por participar en la Feria de la Salud. Enviaste tu cuestionario el ${fmt(datos.enviado_en)}`;
+  const cont = $('res-temas');
+  cont.innerHTML = '';
+  for (const t of r.por_tema) {
+    const d = document.createElement('div');
+    const perfecto = t.falladas.length === 0;
+    d.className = 'res-tema' + (perfecto ? ' perfecto' : '');
+    const cab = document.createElement('div');
+    cab.className = 'res-cab';
+    cab.innerHTML = `<span class="res-nombre"></span><span class="res-marca">${perfecto ? '✓ ' : ''}${t.correctas} de ${t.total}</span>`;
+    cab.querySelector('.res-nombre').textContent = t.nombre;
+    d.appendChild(cab);
+    if (!perfecto) {
+      const ul = document.createElement('ul');
+      for (const f of t.falladas) {
+        const li = document.createElement('li');
+        const q = document.createElement('p'); q.className = 'res-preg'; q.textContent = f.enunciado;
+        const tu = document.createElement('p'); tu.className = 'res-tuya'; tu.textContent = 'Tu respuesta: ' + (f.tu_respuesta ?? 'sin responder');
+        const ok = document.createElement('p'); ok.className = 'res-ok'; ok.textContent = 'Respuesta correcta: ' + f.correcta;
+        li.append(q, tu, ok); ul.appendChild(li);
+      }
+      d.appendChild(ul);
+    }
+    cont.appendChild(d);
+  }
+  document.title = 'Tu resultado · Feria de la Salud';
+  vista('v-resultado');
+}
+
+$('b-enviar').onclick = () => { $('dlg-enviar').returnValue = ''; $('dlg-enviar').showModal(); };
+$('dlg-enviar').onclose = async () => {
+  if ($('dlg-enviar').returnValue !== 'si') return;
+  const b = $('b-enviar'); b.disabled = true; b.textContent = 'Enviando…';
+  $('env-err').classList.add('hidden');
+  try {
+    if (Object.keys(pendientes).length) await vaciarPendientes();
+    if (Object.keys(pendientes).length) throw new Error('Hay respuestas sin guardar por falta de conexión. Espera a que vuelva el internet e inténtalo de nuevo.');
+    await api('/api/enviar', {});
+    await cargar();
+  } catch (e) {
+    if (e.status === 401) return sesionVencida();
+    $('env-err').textContent = e.message; $('env-err').classList.remove('hidden');
+  } finally { b.disabled = false; b.textContent = 'Enviar cuestionario'; }
+};
+
 async function cargar() {
   if (!token) return vista('v-login');
   vista('cargando');
@@ -327,6 +422,7 @@ async function cargar() {
     // Respuestas que quedaron pendientes en este dispositivo: se muestran y se reenvían
     for (const t of datos.temas) for (const p of t.preguntas) if (pendientes[p.id] !== undefined) p.respuesta = pendientes[p.id];
     if (Object.keys(pendientes).length) vaciarPendientes().then(() => Object.keys(pendientes).length && programarReintento());
+    if (datos.enviado_en && datos.resultado) { pendientes = {}; guardarPend(); return pintarResultado(); }
     document.title = 'Feria de la Salud · Medical';
     pintarTemas();
     vista('v-temas');
@@ -353,6 +449,7 @@ $('f-login').onsubmit = async (ev) => {
     errorLogin(e.message); $('doc').focus();
   } finally { b.disabled = false; b.textContent = 'Entrar'; }
 };
+$('b-salir2').onclick = () => $('b-salir').onclick();
 $('b-salir').onclick = async () => {
   if (Object.keys(pendientes).length) await vaciarPendientes();
   try { await api('/api/salir', {}); } catch {}

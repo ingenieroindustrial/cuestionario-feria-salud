@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS colaboradores (
   intentos_fallidos INTEGER NOT NULL DEFAULT 0,
   bloqueado_hasta   TEXT,
   ultimo_ingreso    TEXT,
+  enviado_en        TEXT,                   -- cuándo envió el cuestionario (ya no puede cambiar respuestas)
   creado            TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 

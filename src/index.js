@@ -76,7 +76,7 @@ async function miCuestionario(req, env) {
   const s = await sesion(req, env);
   const [cfg, colab, temas, preguntas, resp] = await Promise.all([
     config(env),
-    env.DB.prepare('SELECT nombre FROM colaboradores WHERE id = ?').bind(s.colaborador_id).first(),
+    env.DB.prepare('SELECT nombre, enviado_en FROM colaboradores WHERE id = ?').bind(s.colaborador_id).first(),
     env.DB.prepare('SELECT id, nombre FROM temas ORDER BY orden').all(),
     env.DB.prepare('SELECT id, tema_id, enunciado, opciones FROM preguntas ORDER BY tema_id, orden').all(),
     env.DB.prepare('SELECT pregunta_id, opcion FROM respuestas WHERE colaborador_id = ?').bind(s.colaborador_id).all(),
@@ -84,6 +84,8 @@ async function miCuestionario(req, env) {
   const mias = new Map(resp.results.map((r) => [r.pregunta_id, r.opcion]));
   return json({
     nombre: colab?.nombre,
+    enviado_en: colab?.enviado_en || null,
+    resultado: colab?.enviado_en ? await calcularResultado(env, s.colaborador_id) : null,
     titulo: cfg.titulo,
     inicio: cfg.inicio,
     cierre: cfg.cierre,
@@ -98,6 +100,48 @@ async function miCuestionario(req, env) {
   });
 }
 
+// Resultado del colaborador: % de aciertos y preguntas falladas agrupadas por tema
+async function calcularResultado(env, colabId) {
+  const [temas, preguntas, resp] = await Promise.all([
+    env.DB.prepare('SELECT id, nombre FROM temas ORDER BY orden').all(),
+    env.DB.prepare('SELECT id, tema_id, enunciado, opciones, correcta FROM preguntas ORDER BY tema_id, orden').all(),
+    env.DB.prepare('SELECT pregunta_id, opcion, es_correcta FROM respuestas WHERE colaborador_id = ?').bind(colabId).all(),
+  ]);
+  const mias = new Map(resp.results.map((r) => [r.pregunta_id, r]));
+  let correctas = 0;
+  const total = preguntas.results.length;
+  const por_tema = temas.results.map((t) => {
+    const ps = preguntas.results.filter((p) => p.tema_id === t.id);
+    const falladas = [];
+    let ok = 0;
+    for (const p of ps) {
+      const r = mias.get(p.id);
+      const opciones = JSON.parse(p.opciones);
+      if (r && r.es_correcta) { ok++; continue; }
+      falladas.push({ enunciado: p.enunciado, tu_respuesta: r ? opciones[r.opcion] ?? null : null, correcta: opciones[p.correcta] });
+    }
+    correctas += ok;
+    return { nombre: t.nombre, correctas: ok, total: ps.length, falladas };
+  });
+  return { correctas, total, porcentaje: total ? Math.round((100 * correctas) / total) : 0, por_tema };
+}
+
+async function enviarCuestionario(req, env) {
+  const s = await sesion(req, env);
+  const c = await env.DB.prepare('SELECT enviado_en FROM colaboradores WHERE id = ?').bind(s.colaborador_id).first();
+  if (!c.enviado_en) {
+    const cfg = await config(env);
+    const t = ahora();
+    if (t < cfg.inicio) throw new HttpError(403, 'NO_HA_INICIADO', 'El cuestionario todavía no ha abierto');
+    if (t > cfg.cierre) throw new HttpError(403, 'CERRADO', 'El plazo para responder ya terminó');
+    const { total } = await env.DB.prepare('SELECT COUNT(*) AS total FROM preguntas').first();
+    const { hechas } = await env.DB.prepare('SELECT COUNT(*) AS hechas FROM respuestas WHERE colaborador_id = ?').bind(s.colaborador_id).first();
+    if (hechas < total) throw new HttpError(400, 'INCOMPLETO', `Te faltan ${total - hechas} preguntas por responder antes de enviar.`);
+    await env.DB.prepare('UPDATE colaboradores SET enviado_en = ? WHERE id = ? AND enviado_en IS NULL').bind(t, s.colaborador_id).run();
+  }
+  return json({ ok: true, resultado: await calcularResultado(env, s.colaborador_id) });
+}
+
 async function guardarRespuesta(req, env) {
   const s = await sesion(req, env);
   const { pregunta_id, opcion } = await leerJson(req);
@@ -105,6 +149,8 @@ async function guardarRespuesta(req, env) {
   const t = ahora();
   if (t < cfg.inicio) throw new HttpError(403, 'NO_HA_INICIADO', 'El cuestionario todavía no ha abierto');
   if (t > cfg.cierre) throw new HttpError(403, 'CERRADO', 'El plazo para responder ya terminó');
+  const yo = await env.DB.prepare('SELECT enviado_en FROM colaboradores WHERE id = ?').bind(s.colaborador_id).first();
+  if (yo?.enviado_en) throw new HttpError(403, 'ENVIADO', 'Ya enviaste tu cuestionario. Las respuestas no se pueden cambiar.');
   const p = await env.DB.prepare('SELECT id, opciones, correcta FROM preguntas WHERE id = ?').bind(Number(pregunta_id)).first();
   if (!p) throw new HttpError(400, 'PREGUNTA_INVALIDA', 'Pregunta inválida');
   const n = JSON.parse(p.opciones).length;
@@ -149,7 +195,7 @@ async function adminReporte(req, env) {
     config(env),
     env.DB.prepare('SELECT t.id, t.nombre, COUNT(p.id) AS n FROM temas t LEFT JOIN preguntas p ON p.tema_id = t.id GROUP BY t.id ORDER BY t.orden').all(),
     env.DB.prepare(
-      `SELECT c.documento AS d, c.nombre AS n, c.area AS a, c.ultimo_ingreso AS i,
+      `SELECT c.documento AS d, c.nombre AS n, c.area AS a, c.ultimo_ingreso AS i, c.enviado_en AS e,
               (SELECT MAX(respondida) FROM respuestas WHERE colaborador_id = c.id) AS u,
               (SELECT GROUP_CONCAT(x, ',') FROM (
                  SELECT p.tema_id || ':' || COUNT(*) || ':' || SUM(r.es_correcta) AS x
@@ -226,6 +272,27 @@ async function adminGuardarColaborador(req, env) {
   return json({ ok: true, accion: 'creado' });
 }
 
+// Todas las respuestas, por páginas, para el Excel: [documento, pregunta_id, opcion, es_correcta]
+async function adminRespuestas(req, env) {
+  await sesion(req, env, true);
+  const desde = Math.max(0, Number(new URL(req.url).searchParams.get('desde')) || 0);
+  const LOTE = 4000;
+  const r = await env.DB.prepare(
+    `SELECT r.rowid AS k, c.documento AS d, r.pregunta_id AS p, r.opcion AS o, r.es_correcta AS ok
+     FROM respuestas r JOIN colaboradores c ON c.id = r.colaborador_id WHERE r.rowid > ? ORDER BY r.rowid LIMIT ?`
+  ).bind(desde, LOTE).raw();
+  const filas = r.map(([k, d, p, o, ok]) => [d, p, o, ok]);
+  return json({ filas, siguiente: r.length === LOTE ? r[r.length - 1][0] : null });
+}
+
+async function adminReabrir(req, env) {
+  await sesion(req, env, true);
+  const { documento } = await leerJson(req);
+  const r = await env.DB.prepare('UPDATE colaboradores SET enviado_en = NULL WHERE documento = ?').bind(limpiarDoc(documento)).run();
+  if (!r.meta.changes) throw new HttpError(404, 'NO_EXISTE', 'No existe un colaborador con ese documento');
+  return json({ ok: true });
+}
+
 async function adminEliminarColaborador(req, env) {
   await sesion(req, env, true);
   const { documento } = await leerJson(req);
@@ -271,6 +338,7 @@ async function adminCargarPreguntas(req, env) {
   if (errores.length) throw new HttpError(400, 'DATOS', `Revisa las filas: ${errores.slice(0, 15).join(', ')}${errores.length > 15 ? '…' : ''}`);
   const stmts = [
     env.DB.prepare('DELETE FROM respuestas'),
+    env.DB.prepare('UPDATE colaboradores SET enviado_en = NULL'),
     env.DB.prepare('DELETE FROM preguntas'),
     env.DB.prepare('DELETE FROM temas'),
   ];
@@ -291,7 +359,7 @@ async function adminCargarPreguntas(req, env) {
 async function adminPreguntas(req, env) {
   await sesion(req, env, true);
   const r = await env.DB.prepare(
-    'SELECT t.nombre AS tema, p.enunciado, p.opciones, p.correcta FROM preguntas p JOIN temas t ON t.id = p.tema_id ORDER BY t.orden, p.orden'
+    'SELECT p.id, t.nombre AS tema, p.enunciado, p.opciones, p.correcta FROM preguntas p JOIN temas t ON t.id = p.tema_id ORDER BY t.orden, p.orden'
   ).all();
   return json({ preguntas: r.results.map((p) => ({ ...p, opciones: JSON.parse(p.opciones) })) });
 }
@@ -303,12 +371,15 @@ const rutas = {
   'GET /api/cuestionario': miCuestionario,
   'POST /api/respuesta': guardarRespuesta,
   'POST /api/salir': salir,
+  'POST /api/enviar': enviarCuestionario,
   'POST /api/admin/ingresar': adminIngresar,
   'GET /api/admin/reporte': adminReporte,
   'POST /api/admin/plazo': adminPlazo,
   'POST /api/admin/colaboradores': adminCargarColaboradores,
   'POST /api/admin/eliminar-colaborador': adminEliminarColaborador,
   'POST /api/admin/colaborador': adminGuardarColaborador,
+  'POST /api/admin/reabrir': adminReabrir,
+  'GET /api/admin/respuestas': adminRespuestas,
   'POST /api/admin/clave': adminCambiarClave,
   'GET /api/admin/preguntas': adminPreguntas,
   'POST /api/admin/preguntas': adminCargarPreguntas,

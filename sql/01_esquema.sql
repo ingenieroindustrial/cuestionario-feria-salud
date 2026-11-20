@@ -6,7 +6,10 @@ CREATE TABLE IF NOT EXISTS config (
   inicio        TEXT NOT NULL,              -- ISO 8601 UTC
   cierre        TEXT NOT NULL,              -- ISO 8601 UTC
   admin_salt    TEXT NOT NULL,
-  admin_hash    TEXT NOT NULL
+  admin_hash    TEXT NOT NULL,
+  bi_salt       TEXT,                       -- clave de solo lectura para Power BI (hash)
+  bi_hash       TEXT,
+  bi_creada     TEXT
 );
 
 CREATE TABLE IF NOT EXISTS temas (

@@ -53,6 +53,7 @@
         <button role="tab" data-t="avance" aria-selected="true">Avance</button>
         <button role="tab" data-t="colab" aria-selected="false">Colaboradores</button>
         <button role="tab" data-t="preg" aria-selected="false">Preguntas</button>
+        <button role="tab" data-t="bi" aria-selected="false">Power BI</button>
         <button role="tab" data-t="conf" aria-selected="false">Configuración</button>
       </nav>
     </div>
@@ -147,6 +148,35 @@
         <div id="p-ok" class="nota exito hidden" role="status"></div>
       </div>
       <div class="panel pregs"><h2>Así las ven los colaboradores</h2><div id="lista-p"></div></div>
+    </section>
+
+    <!-- ---------- POWER BI ---------- -->
+    <section data-p="bi" class="stack hidden">
+      <div class="panel">
+        <div class="panel-cab"><h2>Conexión con Power BI</h2><span id="bi-estado" class="pill no"></span></div>
+        <p class="muted">Power BI lee los datos directamente de la app, en solo lectura, con una clave propia. Nunca ve la clave de administrador ni datos de sesión. Al actualizar el informe en Power BI siempre trae lo más reciente.</p>
+        <div class="row">
+          <button class="btn" id="b-bi-gen" type="button">Generar clave de Power BI</button>
+          <button class="btn fantasma" id="b-bi-quitar" type="button" style="color:var(--error)">Quitar acceso</button>
+        </div>
+        <div id="bi-err" class="nota error hidden" role="alert"></div>
+        <div id="bi-nueva" class="stack hidden">
+          <div class="nota alerta" role="status">Copia el código ahora: por seguridad la clave no se vuelve a mostrar. Si la pierdes, genera una nueva (la anterior deja de funcionar).</div>
+          <div>
+            <label class="campo" for="bi-codigo">Paso 1. Función <b>FeriaDatos</b> (Power BI → Transformar datos → Nuevo origen → Consulta en blanco → Editor avanzado)</label>
+            <textarea id="bi-codigo" class="codigo" rows="14" readonly></textarea>
+            <button class="btn sec chico" type="button" data-copiar="bi-codigo" style="margin-top:8px">Copiar función</button>
+          </div>
+          <div>
+            <label class="campo" for="bi-tablas-cod">Paso 2. Una consulta en blanco por tabla, con esta fórmula (cámbiale el nombre a la consulta)</label>
+            <textarea id="bi-tablas-cod" class="codigo" rows="6" readonly></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Tablas disponibles</h2>
+        <div class="tabla"><table><thead><tr><th>Tabla</th><th>Qué trae</th><th>Úsala para</th></tr></thead><tbody id="bi-lista"></tbody></table></div>
+      </div>
     </section>
 
     <!-- ---------- CONFIGURACIÓN ---------- -->
@@ -311,6 +341,7 @@ function pintar() {
   pintarTabla();
   pintarColaboradores();
   pintarPreguntas();
+  pintarBI();
 }
 
 const coincide = (c, q) => !q || c.nombre.toLowerCase().includes(q) || c.documento.toLowerCase().includes(q) || c.area.toLowerCase().includes(q);
@@ -598,6 +629,78 @@ $('f-clave').onsubmit = async (ev) => {
     setTimeout(() => { token = null; ss.del('fs_admin'); vista('v-login'); }, 1800);
   } catch (e) { nota('k-err', e.message); }
 };
+
+// ------------------------------------------------ Power BI
+const TABLAS_BI = [
+  ['resumen_tema', 'Por tema: cuántos lo empezaron y lo enviaron, % de cobertura, aciertos, % de aprobación y ranking del más visto', 'Temas más vistos y aprobación por tema'],
+  ['resumen_pregunta', 'Por pregunta: respondieron, correctas, incorrectas, % de acierto, cuántos eligieron A/B/C/D y el error más común', 'Preguntas más falladas'],
+  ['resultado_colaborador', 'Por colaborador: estado, temas enviados, % de aprobación (sobre lo enviado y sobre las 30)', 'Aprobación por colaborador, ranking'],
+  ['resultado_tema', 'Por colaborador y tema (10 filas por persona): respondidas, correctas, enviado, %', 'Qué temas vio y le faltaron a cada uno'],
+  ['resumen_area', 'Por área: colaboradores, participación, % que completó y % de aprobación', 'Comparar áreas'],
+  ['avance_diario', 'Por día (hora Colombia): respuestas, temas enviados, personas activas', 'Cómo avanzó la feria día a día'],
+  ['temas', 'Los temas con su ciudad', 'Tabla de dimensión'],
+  ['preguntas', 'Las preguntas con sus opciones y la respuesta correcta', 'Tabla de dimensión'],
+  ['colaboradores', 'Documento, nombre, área y fechas de ingreso', 'Tabla de dimensión'],
+  ['respuestas', 'Cada respuesta marcada: documento, pregunta, opción, si fue correcta y si el tema se envió', 'Detalle fino, cruces propios'],
+  ['envios_tema', 'Cada tema enviado con su fecha', 'Detalle de envíos'],
+];
+function pintarBI() {
+  const f = rep.config.bi_creada;
+  $('bi-estado').textContent = f ? `Activa desde ${fmt(f)}` : 'Sin clave';
+  $('bi-estado').className = 'pill ' + (f ? 'si' : 'no');
+  $('b-bi-gen').textContent = f ? 'Generar una clave nueva' : 'Generar clave de Power BI';
+  $('b-bi-quitar').classList.toggle('hidden', !f);
+  $('bi-lista').innerHTML = TABLAS_BI.map(([n, d, u]) => `<tr><td><code>${n}</code></td><td style="white-space:normal">${d}</td><td style="white-space:normal">${u}</td></tr>`).join('');
+}
+function codigoBI(clave) {
+  return `(tabla as text) as table =>
+let
+    Base = "${location.origin}",
+    Clave = "${clave}",
+    Traer = (desde as number) => Json.Document(Web.Contents(Base, [
+        RelativePath = "api/bi/" & tabla,
+        Query = [desde = Number.ToText(desde)],
+        Headers = [#"x-clave" = Clave]
+    ])),
+    Paginas = List.Generate(() => Traer(0), each _ <> null,
+        each if _[siguiente] = null then null else Traer(_[siguiente])),
+    Filas = List.Combine(List.Transform(Paginas, each _[filas])),
+    Tabla = Table.FromRecords(Filas, null, MissingField.UseNull),
+    Fechas = {"respondida", "enviado_en", "registrado", "ultimo_ingreso", "ultima_respuesta", "envio_los_10_temas"},
+    Tipo = (col as text) as type =>
+        let v = List.First(List.RemoveNulls(Table.Column(Tabla, col)), null) in
+        if List.Contains(Fechas, col) then type datetime
+        else if col = "dia" then type date
+        else if v is number then type number
+        else type text,
+    ConTipos = if List.IsEmpty(Filas) then #table({}, {})
+        else Table.TransformColumnTypes(Tabla,
+            List.Transform(Table.ColumnNames(Tabla), each {_, Tipo(_)}), "en-US")
+in
+    ConTipos`;
+}
+$('b-bi-gen').onclick = async () => {
+  if (rep.config.bi_creada && !(await confirmar('¿Generar una clave nueva?', 'La clave actual dejará de funcionar y tendrás que pegar la nueva en Power BI.', 'Generar'))) return;
+  nota('bi-err', '');
+  try {
+    const r = await api('/api/admin/clave-bi', {});
+    rep.config.bi_creada = r.creada; pintarBI();
+    $('bi-codigo').value = codigoBI(r.clave);
+    $('bi-tablas-cod').value = TABLAS_BI.map(([n]) => `${n}:  = FeriaDatos("${n}")`).join('\n');
+    $('bi-nueva').classList.remove('hidden');
+  } catch (e) { nota('bi-err', e.message); }
+};
+$('b-bi-quitar').onclick = async () => {
+  if (!(await confirmar('¿Quitar el acceso de Power BI?', 'Power BI no podrá volver a actualizar los datos hasta que generes una clave nueva.', 'Quitar acceso'))) return;
+  try { await api('/api/admin/quitar-clave-bi', {}); rep.config.bi_creada = null; $('bi-nueva').classList.add('hidden'); pintarBI(); }
+  catch (e) { nota('bi-err', e.message); }
+};
+document.addEventListener('click', async (ev) => {
+  const b = ev.target.closest('[data-copiar]'); if (!b) return;
+  const t = $(b.dataset.copiar); t.select();
+  try { await navigator.clipboard.writeText(t.value); } catch { document.execCommand('copy'); }
+  const txt = b.textContent; b.textContent = 'Copiado'; setTimeout(() => (b.textContent = txt), 1500);
+});
 
 // ------------------------------------------------ navegación
 $('tabs').onclick = (ev) => {

@@ -250,7 +250,7 @@ async function adminReporte(req, env) {
     ).all(),
   ]);
   return json({
-    config: { titulo: cfg.titulo, inicio: cfg.inicio, cierre: cfg.cierre },
+    config: { titulo: cfg.titulo, inicio: cfg.inicio, cierre: cfg.cierre, bi_creada: cfg.bi_creada || null },
     temas: temas.results,
     colaboradores: colabs.results,
   });
@@ -416,6 +416,290 @@ async function adminPreguntas(req, env) {
   return json({ preguntas: r.results.map((p) => ({ ...p, opciones: JSON.parse(p.opciones) })) });
 }
 
+// ---------------------------------------------------------------- Power BI (solo lectura)
+// GET /api/bi/<tabla>?desde=N  con encabezado  x-clave: <clave de Power BI>
+// Respuesta: { tabla, filas: [...], siguiente }  — si "siguiente" no es null, pedir de nuevo con desde=siguiente.
+// Nunca expone la configuración, las sesiones ni los hashes.
+
+const BI_LOTE = 5000;
+const LETRA = 'ABCDEFGH';
+// Fechas en hora de Colombia (UTC-5, sin horario de verano), formato que Power BI reconoce
+const horaCol = (iso) => (iso ? new Date(new Date(iso).getTime() - 5 * 36e5).toISOString().slice(0, 19).replace('T', ' ') : null);
+const pctBI = (a, b) => (b ? Math.round((1000 * a) / b) / 10 : null);
+
+const TABLAS_BI = {
+  temas: {
+    desc: 'Los 10 temas con su ciudad homenajeada',
+    async leer(env) {
+      const r = await env.DB.prepare(
+        'SELECT t.id AS tema_id, t.orden, t.nombre AS tema, t.ciudad, (SELECT COUNT(*) FROM preguntas p WHERE p.tema_id = t.id) AS preguntas FROM temas t ORDER BY t.orden'
+      ).all();
+      return { filas: r.results };
+    },
+  },
+  preguntas: {
+    desc: 'Preguntas con sus opciones y la respuesta correcta',
+    async leer(env) {
+      const r = await env.DB.prepare(
+        'SELECT p.id AS pregunta_id, p.tema_id, t.nombre AS tema, t.orden AS tema_orden, p.orden, p.enunciado, p.opciones, p.correcta FROM preguntas p JOIN temas t ON t.id = p.tema_id ORDER BY t.orden, p.orden'
+      ).all();
+      return {
+        filas: r.results.map((p) => {
+          const o = JSON.parse(p.opciones);
+          return {
+            pregunta_id: p.pregunta_id, codigo: `T${p.tema_orden}-P${p.orden}`, tema_id: p.tema_id, tema: p.tema, orden: p.orden, enunciado: p.enunciado,
+            opcion_a: o[0] ?? null, opcion_b: o[1] ?? null, opcion_c: o[2] ?? null, opcion_d: o[3] ?? null,
+            correcta: LETRA[p.correcta], respuesta_correcta: o[p.correcta] ?? null,
+          };
+        }),
+      };
+    },
+  },
+  colaboradores: {
+    desc: 'Colaboradores registrados',
+    async leer(env, desde) {
+      const r = await env.DB.prepare(
+        'SELECT id, documento, nombre, area, creado, ultimo_ingreso, enviado_en FROM colaboradores WHERE id > ? ORDER BY id LIMIT ?'
+      ).bind(desde, BI_LOTE).all();
+      return {
+        filas: r.results.map((c) => ({ documento: c.documento, nombre: c.nombre, area: c.area, registrado: horaCol(c.creado), ultimo_ingreso: horaCol(c.ultimo_ingreso), envio_los_10_temas: horaCol(c.enviado_en) })),
+        siguiente: r.results.length === BI_LOTE ? r.results[r.results.length - 1].id : null,
+      };
+    },
+  },
+  respuestas: {
+    desc: 'Cada respuesta marcada: una fila por colaborador y pregunta',
+    async leer(env, desde) {
+      const r = await env.DB.prepare(
+        `SELECT r.rowid AS k, c.documento, p.tema_id, r.pregunta_id, r.opcion, r.es_correcta, r.respondida,
+                CASE WHEN e.tema_id IS NULL THEN 0 ELSE 1 END AS enviado
+         FROM respuestas r JOIN colaboradores c ON c.id = r.colaborador_id JOIN preguntas p ON p.id = r.pregunta_id
+         LEFT JOIN envios_tema e ON e.colaborador_id = r.colaborador_id AND e.tema_id = p.tema_id
+         WHERE r.rowid > ? ORDER BY r.rowid LIMIT ?`
+      ).bind(desde, BI_LOTE).all();
+      return {
+        filas: r.results.map((x) => ({ documento: x.documento, tema_id: x.tema_id, pregunta_id: x.pregunta_id, opcion: LETRA[x.opcion], es_correcta: x.es_correcta, tema_enviado: x.enviado, respondida: horaCol(x.respondida) })),
+        siguiente: r.results.length === BI_LOTE ? r.results[r.results.length - 1].k : null,
+      };
+    },
+  },
+  envios_tema: {
+    desc: 'Temas enviados: una fila por colaborador y tema enviado',
+    async leer(env, desde) {
+      const r = await env.DB.prepare(
+        `SELECT e.rowid AS k, c.documento, e.tema_id, e.enviado_en FROM envios_tema e JOIN colaboradores c ON c.id = e.colaborador_id
+         WHERE e.rowid > ? ORDER BY e.rowid LIMIT ?`
+      ).bind(desde, BI_LOTE).all();
+      return {
+        filas: r.results.map((x) => ({ documento: x.documento, tema_id: x.tema_id, enviado_en: horaCol(x.enviado_en) })),
+        siguiente: r.results.length === BI_LOTE ? r.results[r.results.length - 1].k : null,
+      };
+    },
+  },
+  resultado_tema: {
+    desc: 'Resultado por colaborador y tema (10 filas por persona)',
+    async leer(env, desde) {
+      const COLABS = 500;
+      const r = await env.DB.prepare(
+        `SELECT c.id AS k, c.documento, c.nombre, c.area, t.id AS tema_id, t.nombre AS tema, t.ciudad,
+                COUNT(p.id) AS preguntas, COUNT(r.pregunta_id) AS respondidas, COALESCE(SUM(r.es_correcta), 0) AS correctas, e.enviado_en
+         FROM (SELECT id, documento, nombre, area FROM colaboradores WHERE id > ? ORDER BY id LIMIT ?) c
+         CROSS JOIN temas t
+         LEFT JOIN preguntas p ON p.tema_id = t.id
+         LEFT JOIN respuestas r ON r.pregunta_id = p.id AND r.colaborador_id = c.id
+         LEFT JOIN envios_tema e ON e.colaborador_id = c.id AND e.tema_id = t.id
+         GROUP BY c.id, t.id ORDER BY c.id, t.orden`
+      ).bind(desde, COLABS).all();
+      const ids = new Set(r.results.map((x) => x.k));
+      return {
+        filas: r.results.map((x) => ({
+          documento: x.documento, nombre: x.nombre, area: x.area, tema_id: x.tema_id, tema: x.tema, ciudad: x.ciudad,
+          preguntas: x.preguntas, respondidas: x.respondidas, correctas: x.correctas,
+          estado: x.enviado_en ? 'Enviado' : x.respondidas === 0 ? 'Sin empezar' : x.respondidas < x.preguntas ? 'Incompleto' : 'Respondido sin enviar',
+          enviado: x.enviado_en ? 1 : 0, enviado_en: horaCol(x.enviado_en),
+          porcentaje: x.enviado_en ? pctBI(x.correctas, x.preguntas) : null,
+        })),
+        siguiente: ids.size === COLABS ? r.results[r.results.length - 1].k : null,
+      };
+    },
+  },
+  resultado_colaborador: {
+    desc: 'Resumen por colaborador con su % de aprobación',
+    async leer(env, desde) {
+      const LOTE = 2000;
+      const [tot, r] = await Promise.all([
+        env.DB.prepare('SELECT (SELECT COUNT(*) FROM temas) AS temas, (SELECT COUNT(*) FROM preguntas) AS preguntas').first(),
+        env.DB.prepare(
+          `SELECT c.id AS k, c.documento, c.nombre, c.area, c.ultimo_ingreso, c.enviado_en,
+                  (SELECT COUNT(*) FROM respuestas WHERE colaborador_id = c.id) AS respondidas,
+                  (SELECT COUNT(*) FROM envios_tema WHERE colaborador_id = c.id) AS temas_enviados,
+                  (SELECT COUNT(*) FROM envios_tema e JOIN preguntas p ON p.tema_id = e.tema_id WHERE e.colaborador_id = c.id) AS preguntas_enviadas,
+                  (SELECT COUNT(*) FROM respuestas r JOIN preguntas p ON p.id = r.pregunta_id
+                     JOIN envios_tema e ON e.colaborador_id = r.colaborador_id AND e.tema_id = p.tema_id
+                   WHERE r.colaborador_id = c.id AND r.es_correcta = 1) AS correctas_enviadas,
+                  (SELECT MAX(respondida) FROM respuestas WHERE colaborador_id = c.id) AS ultima_respuesta
+           FROM colaboradores c WHERE c.id > ? ORDER BY c.id LIMIT ?`
+        ).bind(desde, LOTE).all(),
+      ]);
+      return {
+        filas: r.results.map((x) => ({
+          documento: x.documento, nombre: x.nombre, area: x.area,
+          estado: x.temas_enviados >= tot.temas && tot.temas ? 'Envió los 10 temas' : x.temas_enviados > 0 ? 'Envió algunos temas' : x.respondidas === 0 ? 'No ha iniciado' : 'En progreso',
+          temas_enviados: x.temas_enviados, temas_total: tot.temas,
+          preguntas_respondidas: x.respondidas, preguntas_total: tot.preguntas,
+          preguntas_enviadas: x.preguntas_enviadas, correctas_enviadas: x.correctas_enviadas,
+          porcentaje_aprobacion: pctBI(x.correctas_enviadas, x.preguntas_enviadas),
+          porcentaje_sobre_total: pctBI(x.correctas_enviadas, tot.preguntas) ?? 0,
+          ultimo_ingreso: horaCol(x.ultimo_ingreso), ultima_respuesta: horaCol(x.ultima_respuesta), envio_los_10_temas: horaCol(x.enviado_en),
+        })),
+        siguiente: r.results.length === LOTE ? r.results[r.results.length - 1].k : null,
+      };
+    },
+  },
+  // ----- Estadísticas listas para el tablero final
+  resumen_tema: {
+    desc: 'Por tema: cuántos lo vieron, lo enviaron, % de aciertos y ranking de más visto',
+    async leer(env) {
+      const [tot, r] = await Promise.all([
+        env.DB.prepare('SELECT COUNT(*) AS n FROM colaboradores').first(),
+        env.DB.prepare(
+          `SELECT t.id AS tema_id, t.orden, t.nombre AS tema, t.ciudad,
+                  (SELECT COUNT(*) FROM preguntas WHERE tema_id = t.id) AS preguntas,
+                  (SELECT COUNT(DISTINCT r.colaborador_id) FROM respuestas r JOIN preguntas p ON p.id = r.pregunta_id WHERE p.tema_id = t.id) AS lo_empezaron,
+                  (SELECT COUNT(*) FROM envios_tema WHERE tema_id = t.id) AS lo_enviaron,
+                  (SELECT COUNT(*) FROM respuestas r JOIN preguntas p ON p.id = r.pregunta_id JOIN envios_tema e ON e.colaborador_id = r.colaborador_id AND e.tema_id = p.tema_id WHERE p.tema_id = t.id) AS respuestas_enviadas,
+                  (SELECT COUNT(*) FROM respuestas r JOIN preguntas p ON p.id = r.pregunta_id JOIN envios_tema e ON e.colaborador_id = r.colaborador_id AND e.tema_id = p.tema_id WHERE p.tema_id = t.id AND r.es_correcta = 1) AS correctas,
+                  (SELECT COUNT(*) FROM (SELECT e.colaborador_id FROM envios_tema e JOIN preguntas p ON p.tema_id = e.tema_id
+                      LEFT JOIN respuestas r ON r.colaborador_id = e.colaborador_id AND r.pregunta_id = p.id
+                    WHERE e.tema_id = t.id GROUP BY e.colaborador_id HAVING SUM(COALESCE(r.es_correcta, 0)) = COUNT(p.id))) AS perfectos
+           FROM temas t ORDER BY t.orden`
+        ).all(),
+      ]);
+      const orden = [...r.results].sort((a, b) => b.lo_enviaron - a.lo_enviaron);
+      return {
+        filas: r.results.map((x) => ({
+          tema_id: x.tema_id, orden: x.orden, tema: x.tema, ciudad: x.ciudad, preguntas: x.preguntas, colaboradores_total: tot.n,
+          lo_empezaron: x.lo_empezaron, lo_enviaron: x.lo_enviaron, no_lo_enviaron: tot.n - x.lo_enviaron,
+          porcentaje_cobertura: pctBI(x.lo_enviaron, tot.n),
+          respuestas_enviadas: x.respuestas_enviadas, correctas: x.correctas, incorrectas: x.respuestas_enviadas - x.correctas,
+          porcentaje_aprobacion: pctBI(x.correctas, x.respuestas_enviadas),
+          colaboradores_con_todo_correcto: x.perfectos,
+          ranking_mas_visto: orden.findIndex((o) => o.tema_id === x.tema_id) + 1,
+        })),
+      };
+    },
+  },
+  resumen_pregunta: {
+    desc: 'Por pregunta: correctas, incorrectas, % de acierto y cuántos eligieron cada opción',
+    async leer(env) {
+      const [ps, r] = await Promise.all([
+        TABLAS_BI.preguntas.leer(env),
+        env.DB.prepare(
+          `SELECT r.pregunta_id, r.opcion, COUNT(*) AS n,
+                  SUM(CASE WHEN e.tema_id IS NULL THEN 0 ELSE 1 END) AS n_env
+           FROM respuestas r JOIN preguntas p ON p.id = r.pregunta_id
+           LEFT JOIN envios_tema e ON e.colaborador_id = r.colaborador_id AND e.tema_id = p.tema_id
+           GROUP BY r.pregunta_id, r.opcion`
+        ).all(),
+      ]);
+      const m = new Map();
+      for (const x of r.results) { if (!m.has(x.pregunta_id)) m.set(x.pregunta_id, []); m.get(x.pregunta_id)[x.opcion] = x.n_env; }
+      return {
+        filas: ps.filas.map((p) => {
+          const cnt = m.get(p.pregunta_id) || [];
+          const ci = LETRA.indexOf(p.correcta);
+          const total = cnt.reduce((a, b) => a + (b || 0), 0), ok = cnt[ci] || 0;
+          let peor = null, max = 0;
+          cnt.forEach((n, i) => { if (i !== ci && (n || 0) > max) { max = n; peor = LETRA[i]; } });
+          return {
+            pregunta_id: p.pregunta_id, codigo: p.codigo, tema_id: p.tema_id, tema: p.tema, enunciado: p.enunciado,
+            correcta: p.correcta, respuesta_correcta: p.respuesta_correcta,
+            respondieron: total, correctas: ok, incorrectas: total - ok, porcentaje_acierto: pctBI(ok, total),
+            eligieron_a: cnt[0] || 0, eligieron_b: cnt[1] || 0, eligieron_c: cnt[2] || 0, eligieron_d: cnt[3] || 0,
+            error_mas_comun: peor, error_mas_comun_texto: peor ? p['opcion_' + peor.toLowerCase()] : null,
+          };
+        }),
+      };
+    },
+  },
+  resumen_area: {
+    desc: 'Por área: participación y % de aprobación',
+    async leer(env) {
+      const r = await env.DB.prepare(
+        `SELECT COALESCE(NULLIF(c.area, ''), 'Sin área') AS area, COUNT(*) AS colaboradores,
+                SUM(CASE WHEN EXISTS (SELECT 1 FROM respuestas WHERE colaborador_id = c.id) THEN 1 ELSE 0 END) AS participaron,
+                SUM(CASE WHEN EXISTS (SELECT 1 FROM envios_tema WHERE colaborador_id = c.id) THEN 1 ELSE 0 END) AS enviaron_algun_tema,
+                SUM(CASE WHEN c.enviado_en IS NOT NULL THEN 1 ELSE 0 END) AS enviaron_los_10,
+                SUM((SELECT COUNT(*) FROM envios_tema WHERE colaborador_id = c.id)) AS temas_enviados,
+                SUM((SELECT COUNT(*) FROM respuestas r JOIN preguntas p ON p.id = r.pregunta_id JOIN envios_tema e ON e.colaborador_id = r.colaborador_id AND e.tema_id = p.tema_id WHERE r.colaborador_id = c.id)) AS respuestas_enviadas,
+                SUM((SELECT COUNT(*) FROM respuestas r JOIN preguntas p ON p.id = r.pregunta_id JOIN envios_tema e ON e.colaborador_id = r.colaborador_id AND e.tema_id = p.tema_id WHERE r.colaborador_id = c.id AND r.es_correcta = 1)) AS correctas
+         FROM colaboradores c GROUP BY 1 ORDER BY 1`
+      ).all();
+      return {
+        filas: r.results.map((x) => ({
+          ...x, porcentaje_participacion: pctBI(x.participaron, x.colaboradores), porcentaje_completaron: pctBI(x.enviaron_los_10, x.colaboradores),
+          promedio_temas_enviados: x.colaboradores ? Math.round((10 * x.temas_enviados) / x.colaboradores) / 10 : 0,
+          porcentaje_aprobacion: pctBI(x.correctas, x.respuestas_enviadas),
+        })),
+      };
+    },
+  },
+  avance_diario: {
+    desc: 'Por día (hora Colombia): respuestas, temas enviados y personas activas',
+    async leer(env) {
+      const dia = (col) => `date(${col}, '-5 hours')`;
+      const [a, b] = await Promise.all([
+        env.DB.prepare(`SELECT ${dia('respondida')} AS dia, COUNT(*) AS respuestas, COUNT(DISTINCT colaborador_id) AS personas_activas FROM respuestas GROUP BY 1`).all(),
+        env.DB.prepare(`SELECT ${dia('enviado_en')} AS dia, COUNT(*) AS temas_enviados, COUNT(DISTINCT colaborador_id) AS personas_que_enviaron FROM envios_tema GROUP BY 1`).all(),
+      ]);
+      const m = new Map();
+      for (const x of a.results) m.set(x.dia, { dia: x.dia, respuestas: x.respuestas, personas_activas: x.personas_activas, temas_enviados: 0, personas_que_enviaron: 0 });
+      for (const x of b.results) Object.assign(m.get(x.dia) || m.set(x.dia, { dia: x.dia, respuestas: 0, personas_activas: 0 }).get(x.dia), { temas_enviados: x.temas_enviados, personas_que_enviaron: x.personas_que_enviaron });
+      return { filas: [...m.values()].sort((x, y) => (x.dia < y.dia ? -1 : 1)) };
+    },
+  },
+};
+
+async function claveBI(req, env) {
+  const url = new URL(req.url);
+  const clave = req.headers.get('x-clave') || url.searchParams.get('clave') || '';
+  const cfg = await env.DB.prepare('SELECT bi_salt, bi_hash FROM config WHERE id = 1').first();
+  if (!cfg?.bi_hash) throw new HttpError(403, 'BI_SIN_CLAVE', 'Primero genera la clave de Power BI en el panel (Configuración).');
+  if (!clave || !igual(await hashClave(cfg.bi_salt, clave), cfg.bi_hash)) {
+    await new Promise((r) => setTimeout(r, 500));
+    throw new HttpError(401, 'BI_CLAVE', 'Clave de Power BI incorrecta');
+  }
+}
+
+async function biTabla(req, env, nombre) {
+  await claveBI(req, env);
+  const t = TABLAS_BI[nombre];
+  if (!t) throw new HttpError(404, 'NO_ENCONTRADO', `No existe la tabla ${nombre}`);
+  const desde = Math.max(0, Number(new URL(req.url).searchParams.get('desde')) || 0);
+  const { filas, siguiente = null } = await t.leer(env, desde);
+  return json({ tabla: nombre, filas, siguiente });
+}
+
+async function biIndice(req, env) {
+  await claveBI(req, env);
+  return json({ tablas: Object.entries(TABLAS_BI).map(([nombre, t]) => ({ nombre, descripcion: t.desc, ruta: `/api/bi/${nombre}` })) });
+}
+
+async function adminGenerarClaveBI(req, env) {
+  await sesion(req, env, true);
+  const clave = 'bi_' + aleatorioHex(20);
+  const salt = aleatorioHex(16);
+  const t = ahora();
+  await env.DB.prepare('UPDATE config SET bi_salt = ?, bi_hash = ?, bi_creada = ? WHERE id = 1').bind(salt, await hashClave(salt, clave), t).run();
+  return json({ clave, creada: t });
+}
+
+async function adminQuitarClaveBI(req, env) {
+  await sesion(req, env, true);
+  await env.DB.prepare('UPDATE config SET bi_salt = NULL, bi_hash = NULL, bi_creada = NULL WHERE id = 1').run();
+  return json({ ok: true });
+}
+
 // ---------------------------------------------------------------- router
 
 const rutas = {
@@ -436,13 +720,18 @@ const rutas = {
   'POST /api/admin/clave': adminCambiarClave,
   'GET /api/admin/preguntas': adminPreguntas,
   'POST /api/admin/preguntas': adminCargarPreguntas,
+  'POST /api/admin/clave-bi': adminGenerarClaveBI,
+  'POST /api/admin/quitar-clave-bi': adminQuitarClaveBI,
+  'GET /api/bi': biIndice,
 };
 
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
     if (!url.pathname.startsWith('/api/')) return env.ASSETS.fetch(req);
-    const h = rutas[`${req.method} ${url.pathname}`];
+    let h = rutas[`${req.method} ${url.pathname}`];
+    const bi = req.method === 'GET' && url.pathname.match(/^\/api\/bi\/([a-z_]+)$/);
+    if (!h && bi) h = (r, e) => biTabla(r, e, bi[1]);
     if (!h) return json({ error: 'NO_ENCONTRADO', mensaje: 'Ruta no encontrada' }, 404);
     try {
       return await h(req, env);

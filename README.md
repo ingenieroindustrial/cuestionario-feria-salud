@@ -30,8 +30,27 @@ Después de esto, cada cambio que se suba a la rama `main` se publica solo.
 1. **Colaboradores**: agrega, edita o elimina personas una por una, o carga la lista completa desde Excel (columnas `documento`, `nombre`, `area`). Cada persona entra solo con su número de documento.
 2. **Preguntas**: descarga las actuales, edítalas en Excel (`tema`, `pregunta`, `opcion_a`…`opcion_d`, `correcta` = letra) y súbelas.
 3. **Configuración**: fecha y hora de apertura y cierre, título y clave de administrador.
-4. **Avance**: indicadores, cobertura por tema, tabla por colaborador y botón **Descargar Excel**
+4. **Power BI**: genera una clave de solo lectura y copia la función `FeriaDatos` lista para pegar en Power BI (ver abajo).
+5. **Avance**: indicadores, cobertura por tema, tabla por colaborador y botón **Descargar Excel**
    (hojas: por colaborador, detalle por tema, cobertura por tema).
+
+## Power BI
+
+Endpoints de solo lectura: `GET /api/bi/<tabla>?desde=N` con el encabezado `x-clave: <clave de Power BI>`.
+Responden `{ tabla, filas, siguiente }`; si `siguiente` no es nulo hay más filas (la función `FeriaDatos` del panel pagina sola).
+`GET /api/bi` lista las tablas. Fechas en hora de Colombia.
+
+| Tabla | Una fila por |
+|---|---|
+| `resumen_tema` | tema: lo empezaron, lo enviaron, % cobertura, aciertos, % aprobación, ranking del más visto |
+| `resumen_pregunta` | pregunta: correctas, incorrectas, % acierto, cuántos eligieron A/B/C/D, error más común |
+| `resultado_colaborador` | colaborador: estado, temas enviados, % aprobación (sobre lo enviado y sobre las 30) |
+| `resultado_tema` | colaborador × tema: respondidas, correctas, enviado, % |
+| `resumen_area` | área: participación, % que completó, % aprobación |
+| `avance_diario` | día: respuestas, temas enviados, personas activas |
+| `temas`, `preguntas`, `colaboradores`, `respuestas`, `envios_tema` | datos crudos (sin hashes, sesiones ni configuración) |
+
+La aprobación se calcula solo con los temas que la persona envió.
 
 ## Datos en D1
 
@@ -45,7 +64,8 @@ El esquema está en `sql/01_esquema.sql` y las preguntas de ejemplo en `sql/02_p
 ## Seguridad
 
 - La clave de administrador se guarda cifrada (hash con sal), nunca en texto plano.
-- Las respuestas correctas nunca se envían al navegador del colaborador.
+- La respuesta correcta solo llega al navegador del colaborador después de que envía el tema, y solo la de las preguntas que falló.
+- Power BI usa una clave aparte, de solo lectura, que se puede cambiar o quitar desde el panel; nunca expone la configuración, las sesiones ni los hashes.
 
 ## Desarrollo local
 

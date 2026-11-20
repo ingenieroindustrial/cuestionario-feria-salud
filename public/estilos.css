@@ -309,3 +309,4 @@ dialog .acciones { display: flex; gap: 10px; justify-content: flex-end; }
 #tema-res { margin-top: 24px; scroll-margin-top: 16px; }
 .cel.env { box-shadow: 0 0 0 2px var(--marino); }
 @media (max-width: 640px) { .felicidades .acum { justify-content: center; } }
+.codigo { width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .82rem; line-height: 1.5; padding: 12px; border-radius: var(--r-s); border: 1.5px solid var(--linea); background: #f6f8fc; color: var(--marino); resize: vertical; }

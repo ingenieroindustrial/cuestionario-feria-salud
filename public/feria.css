@@ -169,7 +169,7 @@ body.feria main.cuerpo, body.feria .papel-fondo { background: transparent; }
 .f-tema-cab .contenido { max-width: 820px; margin: 0 auto; padding: 14px 16px 26px; display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: end; }
 .f-tema-cab .de { color: var(--sobre-azul-2); font-size: .78rem; letter-spacing: .18em; text-transform: uppercase; font-weight: 600; margin-top: 18px; }
 .f-tema-cab h1 { color: #fff; font-size: clamp(1.7rem, 4.6vw, 2.5rem); font-weight: 700; letter-spacing: -.025em; margin-top: 6px; }
-.f-tema-cab .sello-svg { width: 84px; height: 84px; color: rgba(255,255,255,.55); transform: rotate(-10deg); }
+.f-tema-cab .sello-svg { width: 96px; height: 96px; color: rgba(255,255,255,.6); transform: rotate(-10deg); }
 .f-tema-cab .puntos { margin-top: 16px; max-width: 220px; }
 .f-tema-cab .puntos i { height: 6px; transition: background .3s; }
 .f-tema-cab .puntos i.si { background: var(--rosa); }
@@ -269,7 +269,8 @@ body.feria main.cuerpo, body.feria .papel-fondo { background: transparent; }
   .sellos { grid-template-columns: 1fr; }
   .ciudad-c { grid-template-columns: 76px 1fr; }
   .ciudad-c .sello-svg { width: 76px; height: 76px; }
-  .f-tema-cab .sello-svg { width: 64px; height: 64px; }
+  .f-tema-cab .sello-svg { width: 72px; height: 72px; }
+  .sello-zona.grande .zero-c { height: 104px; right: -8px; }
   .envio-f { grid-template-columns: 1fr; }
   .envio-f .btn { width: 100%; }
   .veredicto { grid-template-columns: 1fr; text-align: center; justify-items: center; }
@@ -289,3 +290,23 @@ body.feria main.cuerpo, body.feria .papel-fondo { background: transparent; }
 /* Toques de 44px mínimo en la app del colaborador */
 body.feria .btn.chico { min-height: 44px; padding: 0 16px; }
 body.feria .btn.claro { background: rgba(255,255,255,.16); border-color: rgba(255,255,255,.4); }
+
+/* ZERO de cada ciudad, de pie frente a su sello.
+   Sin enviar: silueta gris, por descubrir. Enviado: a color, visitando su ciudad. */
+.sello-zona { position: relative; transform-style: preserve-3d; }
+.sello-zona .zero-c {
+  position: absolute; right: -16px; bottom: -10px; height: 70%; width: auto; pointer-events: none;
+  transform: translateZ(46px); transform-origin: 50% 100%;
+  filter: grayscale(1) brightness(1.15) opacity(.38) drop-shadow(0 4px 4px rgba(0,0,0,.06));
+  transition: filter .5s, transform .5s var(--ease-sello);
+}
+.ciudad-c:hover .sello-zona .zero-c { filter: grayscale(.4) opacity(.75) drop-shadow(0 6px 6px rgba(0,0,0,.12)); transform: translateZ(46px) translateY(-3px) rotate(-3deg); }
+.ciudad-c.enviado .zero-c, .res-c .zero-c, .veredicto .zero-c { filter: drop-shadow(0 6px 8px rgba(13,43,94,.22)); }
+.ciudad-c.estampando .zero-c { animation: zero-llega .7s var(--ease-sello) both 1s; }
+.veredicto.nuevo .zero-c { animation: zero-llega .7s var(--ease-sello) both .8s; }
+.veredicto .sello-zona { margin-right: 22px; }
+.veredicto .sello-zona .zero-c { height: 80%; right: -24px; }
+.res-c .sello-zona .zero-c { height: 78%; right: -10px; bottom: -6px; }
+.sello-zona.grande .zero-c { height: 132px; right: -30px; bottom: -22px; filter: drop-shadow(0 12px 14px rgba(0,0,0,.3)); animation: zero-llega .8s var(--ease-sello) both .2s; }
+@keyframes zero-llega { 0% { opacity: 0; transform: translateZ(46px) translateY(18px) scale(.6); } 70% { opacity: 1; transform: translateZ(46px) translateY(-4px) scale(1.05); } 100% { transform: translateZ(46px); } }
+@media (prefers-reduced-motion: reduce) { .sello-zona .zero-c { animation: none !important; } }

@@ -257,6 +257,8 @@ const POSE = {
   presentando: '/marca/mascota-presentando.png', ok: '/marca/mascota-tapabocas-ok.png', brazos: '/marca/mascota-brazos-cruzados.png',
 };
 Object.values(POSE).forEach((src) => { const i = new Image(); i.src = src; });
+setTimeout(() => ['bogota', 'armenia', 'leticia', 'cali', 'bucaramanga', 'cartagena', 'ipiales', 'barranquilla', 'medellin', 'villavicencio']
+  .forEach((c) => { const i = new Image(); i.src = `/marca/ciudades/zero-${c}.webp`; }), 2500);
 
 function crearZero(pref) {
   const fig = $(pref), img = $(pref + '-img'), globo = $(pref + '-globo');
@@ -264,14 +266,15 @@ function crearZero(pref) {
   return {
     fig,
     decir(texto, pose, ms = 7000) {
-      if (pose && POSE[pose] && !img.src.endsWith(POSE[pose])) img.src = POSE[pose];
+      const src = pose && (POSE[pose] || (pose.startsWith('/') ? pose : null));
+      if (src && !img.src.endsWith(src)) img.src = src;
       globo.textContent = texto;
       globo.classList.add('ve');
       if (!QUIETO) { fig.classList.remove('salta'); void fig.offsetWidth; fig.classList.add('salta'); }
       clearTimeout(timer);
       if (ms) timer = setTimeout(() => globo.classList.remove('ve'), ms);
     },
-    pose(p) { if (POSE[p] && !img.src.endsWith(POSE[p])) img.src = POSE[p]; },
+    pose(p) { const src = POSE[p] || (p && p.startsWith('/') ? p : null); if (src && !img.src.endsWith(src)) img.src = src; },
     callar() { globo.classList.remove('ve'); },
   };
 }
@@ -308,6 +311,12 @@ function consejos() {
 }
 $('zg').onclick = () => zg.decir(consejos(), null, 6000);
 $('zl').onclick = () => zl.decir('¡Hola! Soy ZERO. Escribe tu nombre y tu documento para abrir tu pasaporte.', 'presentando', 6000);
+
+// ------------------------------------------------ ZERO de cada ciudad
+const CIUDADES_ZERO = ['bogota', 'armenia', 'leticia', 'cali', 'bucaramanga', 'cartagena', 'ipiales', 'barranquilla', 'medellin', 'villavicencio'];
+const slug = (x) => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+const zeroDe = (t) => (CIUDADES_ZERO.includes(slug(t.ciudad)) ? `/marca/ciudades/zero-${slug(t.ciudad)}.webp` : null);
+const imgZero = (t, clase) => { const z = zeroDe(t); return z ? `<img class="${clase}" src="${z}" alt="" loading="lazy" decoding="async">` : ''; };
 
 // ------------------------------------------------ Sellos
 const TINTAS = ['var(--tinta-sello)', 'var(--tinta-rosa)', 'var(--tinta-verde)'];
@@ -386,7 +395,7 @@ function pintarTemas() {
     b.style.setProperty('--i', i);
     b.style.setProperty('--ink', TINTAS[i % TINTAS.length]);
     b.style.setProperty('--giro', giroDe(t.id) + 'deg');
-    b.innerHTML = `${selloDeTema(t, i)}<div class="meta"><div class="num">${String(i + 1).padStart(2, '0')} · ${esc(t.ciudad)}</div><div class="tema">${esc(t.nombre)}</div>
+    b.innerHTML = `<div class="sello-zona">${selloDeTema(t, i)}${imgZero(t, 'zero-c')}</div><div class="meta"><div class="num">${String(i + 1).padStart(2, '0')} · ${esc(t.ciudad)}</div><div class="tema">${esc(t.nombre)}</div>
       <div class="est"><span class="barrita">${t.preguntas.map((p) => `<i class="${p.respuesta !== null ? 'si' : ''}"></i>`).join('')}</span>${estado}</div></div>`;
     b.setAttribute('aria-label', `${t.nombre}${t.ciudad ? ', ' + t.ciudad : ''}: ${estado}`);
     b.onclick = () => abrirTema(i);
@@ -430,7 +439,7 @@ function abrirTema(i) {
   const t = datos.temas[i];
   $('tema-num').textContent = `Ciudad ${i + 1} de ${datos.temas.length}` + (t.ciudad ? ` · ${t.ciudad}` : '');
   $('tema-nombre').textContent = t.nombre;
-  $('tema-sello').innerHTML = selloSVG({ id: t.id, ciudad: t.ciudad || t.nombre, lleno: false, centro: String(i + 1).padStart(2, '0') });
+  $('tema-sello').innerHTML = `<div class="sello-zona grande">${selloSVG({ id: t.id, ciudad: t.ciudad || t.nombre, lleno: false, centro: String(i + 1).padStart(2, '0') })}${imgZero(t, 'zero-c')}</div>`;
   document.title = `${t.nombre} · Feria de la Salud`;
   const est = estadoPlazo();
   const bloqueado = est !== 'abierto' || !!t.resultado;
@@ -485,8 +494,10 @@ function abrirTema(i) {
   $('b-ant').disabled = i === 0;
   $('b-sig').textContent = i === datos.temas.length - 1 ? 'Ver mi pasaporte' : 'Siguiente ciudad';
   vista('v-tema');
-  if (t.resultado) zg.decir(`Ya tienes el sello de ${t.ciudad || t.nombre}. Te marqué en verde las respuestas correctas.`, 'ok', 5000);
-  else if (est === 'abierto') zg.decir(`Bienvenido a ${t.ciudad || t.nombre}. ${t.preguntas.length === 1 ? 'Una pregunta' : `${t.preguntas.length} preguntas`} sobre ${t.nombre.toLowerCase()}.`, 'portatil', 5000);
+  const traje = zeroDe(t) || 'portatil';
+  if (t.resultado) zg.decir(`Ya tienes el sello de ${t.ciudad || t.nombre}. Te marqué en verde las respuestas correctas.`, traje, 5000);
+  else if (est === 'abierto') zg.decir(`¡Bienvenido a ${t.ciudad || t.nombre}! Me vestí para la ocasión. ${t.preguntas.length === 1 ? 'Una pregunta' : `${t.preguntas.length} preguntas`} sobre ${t.nombre.toLowerCase()}.`, traje, 5000);
+  else zg.pose(traje);
 }
 
 // Debajo de las preguntas: botón para enviar el tema, o su sello si ya se envió
@@ -498,7 +509,7 @@ function pintarEnvioTema(nuevo = false) {
   res.classList.toggle('nuevo', nuevo);
   if (t.resultado) {
     const r = t.resultado;
-    $('tema-res-sello').innerHTML = selloDeTema(t, temaActual);
+    $('tema-res-sello').innerHTML = `<div class="sello-zona">${selloDeTema(t, temaActual)}${imgZero(t, 'zero-c')}</div>`;
     res.style.setProperty('--ink', TINTAS[temaActual % TINTAS.length]);
     $('tema-res-t').textContent = r.correctas === r.total ? `¡Perfecto! ${r.correctas} de ${r.total}` : `Acertaste ${r.correctas} de ${r.total}`;
     $('tema-res-p').textContent = r.correctas === r.total ? `Sello de ${t.ciudad || t.nombre} ganado sin un solo error.`
@@ -628,7 +639,7 @@ function cajaTema(t, i, orden) {
   d.style.setProperty('--i', orden);
   d.style.setProperty('--ink', TINTAS[i % TINTAS.length]);
   d.style.setProperty('--giro', giroDe(t.id) + 'deg');
-  d.innerHTML = `<div class="cab">${selloDeTema(t, i)}<div><div class="ciudad">${esc(t.ciudad)}</div><div class="tema">${esc(t.nombre)}</div></div>
+  d.innerHTML = `<div class="cab"><div class="sello-zona">${selloDeTema(t, i)}${imgZero(t, 'zero-c')}</div><div><div class="ciudad">${esc(t.ciudad)}</div><div class="tema">${esc(t.nombre)}</div></div>
     <div class="marca">${perfecto ? '✓ ' : ''}${r.correctas} de ${r.total}</div></div>`;
   if (!perfecto) {
     const ul = document.createElement('ul');
@@ -687,8 +698,8 @@ $('dlg-enviar').onclose = async () => {
     pintarEnvioTema(true);
     const ciudad = t.ciudad || t.nombre, pct = r.tema.total ? r.tema.correctas / r.tema.total : 0;
     if (pct === 1) { zg.decir(`¡Perfecto en ${ciudad}! Sello ganado sin errores.`, 'celebrando'); confeti(); }
-    else if (pct >= .5) zg.decir(`¡Bien! Ganaste el sello de ${ciudad}. Mira en verde lo que fallaste.`, 'ok');
-    else zg.decir(`Sello de ${ciudad} ganado. Repasa en verde las respuestas correctas, te van a servir.`, 'presentando');
+    else if (pct >= .5) zg.decir(`¡Bien! Ganaste el sello de ${ciudad}. Mira en verde lo que fallaste.`, zeroDe(t) || 'ok');
+    else zg.decir(`Sello de ${ciudad} ganado. Repasa en verde las respuestas correctas, te van a servir.`, zeroDe(t) || 'presentando');
     setTimeout(() => $('tema-res').scrollIntoView({ behavior: QUIETO ? 'auto' : 'smooth', block: 'center' }), 120);
   } catch (e) {
     if (e.status === 401) return sesionVencida();

@@ -23,8 +23,12 @@
   <main class="marco">
     <div class="tarjeta">
       <h1>Feria de la Salud</h1>
-      <p class="bajada">Responde 30 preguntas sobre 10 temas de salud. Puedes hacerlo por partes: cada respuesta se guarda en cuanto la marcas, y cada tema lo envías cuando estés listo.</p>
+      <p class="bajada">Responde 30 preguntas sobre 10 temas de salud. Puedes hacerlo por partes: cada respuesta se guarda en cuanto la marcas, y cada tema lo envías cuando estés listo. Para volver, entra con el mismo número de documento.</p>
       <form id="f-login" class="stack" style="margin-top:24px" novalidate>
+        <div>
+          <label class="campo" for="nom">Nombre completo</label>
+          <input id="nom" autocomplete="name" autocapitalize="words" placeholder="Ej: María Fernanda López Ruiz" aria-describedby="login-err">
+        </div>
         <div>
           <label class="campo" for="doc">Número de documento</label>
           <input id="doc" inputmode="numeric" autocomplete="username" placeholder="Ej: 1020304050" aria-describedby="login-err">
@@ -498,19 +502,20 @@ async function cargar() {
 
 $('f-login').onsubmit = async (ev) => {
   ev.preventDefault();
-  const doc = $('doc').value.trim();
+  const doc = $('doc').value.trim(), nom = $('nom').value.trim().replace(/\s+/g, ' ');
+  if (nom.split(' ').filter((x) => x.length > 1).length < 2) { errorLogin('Escribe tu nombre completo (nombre y apellido).'); $('nom').focus(); return; }
   if (!doc) { errorLogin('Escribe tu número de documento.'); $('doc').focus(); return; }
   const b = $('b-login'); b.disabled = true; b.textContent = 'Entrando…';
   errorLogin('');
   try {
-    const r = await api('/api/ingresar', { documento: doc });
+    const r = await api('/api/ingresar', { documento: doc, nombre: nom });
     if (ls.get('fs_dueno') !== doc) { pendientes = {}; ls.del(LS_PEND); } // pendientes de otra persona en este equipo
     ls.set('fs_dueno', doc);
     token = r.token; ls.set(LS_TOKEN, token);
-    $('doc').value = '';
+    $('doc').value = ''; $('nom').value = '';
     await cargar();
   } catch (e) {
-    errorLogin(e.message); $('doc').focus();
+    errorLogin(e.message); $(e.codigo === 'NOMBRE' ? 'nom' : 'doc').focus();
   } finally { b.disabled = false; b.textContent = 'Entrar'; }
 };
 $('b-salir2').onclick = () => $('b-salir').onclick();

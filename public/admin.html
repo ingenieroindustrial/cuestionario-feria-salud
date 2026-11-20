@@ -317,7 +317,7 @@ function pintar() {
   const cuenta = (e) => cs.filter((c) => c.s.estado === e).length;
   const respTot = cs.reduce((a, c) => a + c.s.r, 0), okTot = cs.reduce((a, c) => a + c.s.ok, 0);
   $('kpis').innerHTML = [
-    [tot, 'colaboradores registrados'],
+    [tot, 'personas registradas'],
     [cuenta('Envió los 10 temas'), 'enviaron los 10 temas', tot],
     [cuenta('Envió algunos temas'), 'han enviado algunos temas', tot],
     [cuenta('En progreso'), 'respondiendo sin enviar aún', tot],

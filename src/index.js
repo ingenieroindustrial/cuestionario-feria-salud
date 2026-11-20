@@ -57,11 +57,24 @@ async function config(env) {
 // ---------------------------------------------------------------- colaborador
 
 async function ingresar(req, env) {
-  const { documento } = await leerJson(req);
+  const { documento, nombre } = await leerJson(req);
   const doc = limpiarDoc(documento);
+  let nom = limpiar(nombre).replace(/\s+/g, ' ');
+  // "pedro ramírez" o "PEDRO RAMÍREZ" → "Pedro Ramírez"
+  if (nom === nom.toLowerCase() || nom === nom.toUpperCase()) {
+    nom = nom.toLowerCase().split(' ').map((w, i) => (i > 0 && ['de', 'del', 'la', 'las', 'los', 'y'].includes(w) ? w : w.charAt(0).toUpperCase() + w.slice(1))).join(' ');
+  }
   if (!doc) throw new HttpError(400, 'DATOS', 'Escribe tu número de documento');
-  const c = await env.DB.prepare('SELECT id, nombre FROM colaboradores WHERE documento = ?').bind(doc).first();
-  if (!c) throw new HttpError(401, 'NO_REGISTRADO', 'Ese documento no está registrado. Revisa el número o comunícate con el organizador.');
+  if (!/^[0-9A-Za-z]{3,20}$/.test(doc)) throw new HttpError(400, 'DATOS', 'El documento solo puede tener números o letras, entre 3 y 20 caracteres.');
+  // Cualquier persona puede participar: si el documento no existe, se registra con su nombre completo.
+  let c = await env.DB.prepare('SELECT id, nombre FROM colaboradores WHERE documento = ?').bind(doc).first();
+  if (!c) {
+    if (nom.split(' ').filter((x) => x.length > 1).length < 2 || nom.length > 120) {
+      throw new HttpError(400, 'NOMBRE', 'Escribe tu nombre completo (nombre y apellido).');
+    }
+    await env.DB.prepare("INSERT OR IGNORE INTO colaboradores (documento, nombre, pin_salt, pin_hash) VALUES (?, ?, '', '')").bind(doc, nom).run();
+    c = await env.DB.prepare('SELECT id, nombre FROM colaboradores WHERE documento = ?').bind(doc).first();
+  }
   const token = aleatorioHex(24);
   await env.DB.batch([
     env.DB.prepare('UPDATE colaboradores SET ultimo_ingreso = ? WHERE id = ?').bind(ahora(), c.id),

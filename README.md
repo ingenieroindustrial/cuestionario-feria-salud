@@ -13,7 +13,7 @@ Todo corre en Cloudflare:
 
 | Ruta | Para quién |
 |---|---|
-| `/` | Colaboradores: ingresan con su número de documento. |
+| `/` | Participantes: entran con su nombre completo y número de documento. Si el documento no existe se registran solos; si ya existe, retoman su avance. |
 | `/admin.html` | Administrador: avance, Excel, carga de colaboradores y preguntas, plazo. |
 
 ## Publicar (una sola vez)
@@ -27,7 +27,7 @@ Después de esto, cada cambio que se suba a la rama `main` se publica solo.
 
 ## Uso del panel de administrador
 
-1. **Colaboradores**: agrega, edita o elimina personas una por una, o carga la lista completa desde Excel (columnas `documento`, `nombre`, `area`). Cada persona entra solo con su número de documento.
+1. **Colaboradores**: agrega, edita o elimina personas una por una, o carga la lista completa desde Excel (columnas `documento`, `nombre`, `area`). No es obligatorio: cualquier persona se registra sola al entrar con su nombre y documento. Precargarlos sirve para tener el área de cada uno.
 2. **Preguntas**: descarga las actuales, edítalas en Excel (`tema`, `pregunta`, `opcion_a`…`opcion_d`, `correcta` = letra) y súbelas.
 3. **Configuración**: fecha y hora de apertura y cierre, título y clave de administrador.
 4. **Power BI**: genera una clave de solo lectura y copia la función `FeriaDatos` lista para pegar en Power BI (ver abajo).

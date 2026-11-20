@@ -10,7 +10,7 @@
 :root {
   --azul: #1f4fa0;
   --azul-hover: #193f82;
-  --marino: #0d2b5e;
+  --marino: #1a4590;   /* azul del logo, un punto más firme para texto */
   --cielo: #eaf1fb;
   --cielo-2: #d5e2f6;
   --papel: #ffffff;
@@ -95,7 +95,7 @@ input:focus-visible, select:focus-visible { border-color: var(--azul); }
 .logo-chip img { height: 34px; width: auto; }
 
 /* ---------- Banda superior (marino) ---------- */
-.banda { background: var(--marino); color: #fff; position: relative; overflow: hidden; }
+.banda { background: linear-gradient(180deg, #2459ad, #1f4f9f); color: #fff; position: relative; overflow: hidden; }
 .banda::after { /* cruz Medical de fondo, muy sutil */
   content: ""; position: absolute; right: -60px; top: -40px; width: 260px; height: 260px; opacity: .07; pointer-events: none;
   background:

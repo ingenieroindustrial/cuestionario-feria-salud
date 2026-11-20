@@ -77,7 +77,7 @@ async function miCuestionario(req, env) {
   const [cfg, colab, temas, preguntas, resp] = await Promise.all([
     config(env),
     env.DB.prepare('SELECT nombre, enviado_en FROM colaboradores WHERE id = ?').bind(s.colaborador_id).first(),
-    env.DB.prepare('SELECT id, nombre FROM temas ORDER BY orden').all(),
+    env.DB.prepare('SELECT id, nombre, ciudad FROM temas ORDER BY orden').all(),
     env.DB.prepare('SELECT id, tema_id, enunciado, opciones FROM preguntas ORDER BY tema_id, orden').all(),
     env.DB.prepare('SELECT pregunta_id, opcion FROM respuestas WHERE colaborador_id = ?').bind(s.colaborador_id).all(),
   ]);
@@ -93,6 +93,7 @@ async function miCuestionario(req, env) {
     temas: temas.results.map((t) => ({
       id: t.id,
       nombre: t.nombre,
+      ciudad: t.ciudad || '',
       preguntas: preguntas.results
         .filter((p) => p.tema_id === t.id)
         .map((p) => ({ id: p.id, enunciado: p.enunciado, opciones: JSON.parse(p.opciones), respuesta: mias.get(p.id) ?? null })),
@@ -103,7 +104,7 @@ async function miCuestionario(req, env) {
 // Resultado del colaborador: % de aciertos y preguntas falladas agrupadas por tema
 async function calcularResultado(env, colabId) {
   const [temas, preguntas, resp] = await Promise.all([
-    env.DB.prepare('SELECT id, nombre FROM temas ORDER BY orden').all(),
+    env.DB.prepare('SELECT id, nombre, ciudad FROM temas ORDER BY orden').all(),
     env.DB.prepare('SELECT id, tema_id, enunciado, opciones, correcta FROM preguntas ORDER BY tema_id, orden').all(),
     env.DB.prepare('SELECT pregunta_id, opcion, es_correcta FROM respuestas WHERE colaborador_id = ?').bind(colabId).all(),
   ]);
@@ -121,7 +122,7 @@ async function calcularResultado(env, colabId) {
       falladas.push({ enunciado: p.enunciado, tu_respuesta: r ? opciones[r.opcion] ?? null : null, correcta: opciones[p.correcta] });
     }
     correctas += ok;
-    return { nombre: t.nombre, correctas: ok, total: ps.length, falladas };
+    return { nombre: t.nombre, ciudad: t.ciudad || '', correctas: ok, total: ps.length, falladas };
   });
   return { correctas, total, porcentaje: total ? Math.round((100 * correctas) / total) : 0, por_tema };
 }
@@ -193,7 +194,7 @@ async function adminReporte(req, env) {
   // para que el Worker haga muy poco trabajo aunque haya miles de personas.
   const [cfg, temas, colabs] = await Promise.all([
     config(env),
-    env.DB.prepare('SELECT t.id, t.nombre, COUNT(p.id) AS n FROM temas t LEFT JOIN preguntas p ON p.tema_id = t.id GROUP BY t.id ORDER BY t.orden').all(),
+    env.DB.prepare('SELECT t.id, t.nombre, t.ciudad, COUNT(p.id) AS n FROM temas t LEFT JOIN preguntas p ON p.tema_id = t.id GROUP BY t.id ORDER BY t.orden').all(),
     env.DB.prepare(
       `SELECT c.documento AS d, c.nombre AS n, c.area AS a, c.ultimo_ingreso AS i, c.enviado_en AS e,
               (SELECT MAX(respondida) FROM respuestas WHERE colaborador_id = c.id) AS u,
@@ -325,6 +326,7 @@ async function adminCargarPreguntas(req, env) {
     throw new HttpError(409, 'HAY_RESPUESTAS', `Ya hay ${nResp} respuestas guardadas. Si reemplazas las preguntas se borrarán.`);
   }
   const temas = [];
+  const ciudades = new Map();
   const errores = [];
   preguntas.forEach((p, i) => {
     const tema = limpiar(p.tema);
@@ -334,6 +336,7 @@ async function adminCargarPreguntas(req, env) {
       errores.push(i + 2);
     }
     if (tema && !temas.includes(tema)) temas.push(tema);
+    if (tema && limpiar(p.ciudad) && !ciudades.has(tema)) ciudades.set(tema, limpiar(p.ciudad));
   });
   if (errores.length) throw new HttpError(400, 'DATOS', `Revisa las filas: ${errores.slice(0, 15).join(', ')}${errores.length > 15 ? '…' : ''}`);
   const stmts = [
@@ -342,7 +345,7 @@ async function adminCargarPreguntas(req, env) {
     env.DB.prepare('DELETE FROM preguntas'),
     env.DB.prepare('DELETE FROM temas'),
   ];
-  temas.forEach((t, i) => stmts.push(env.DB.prepare('INSERT INTO temas (id, orden, nombre) VALUES (?, ?, ?)').bind(i + 1, i + 1, t)));
+  temas.forEach((t, i) => stmts.push(env.DB.prepare('INSERT INTO temas (id, orden, nombre, ciudad) VALUES (?, ?, ?, ?)').bind(i + 1, i + 1, t, ciudades.get(t) || null)));
   const orden = new Map();
   for (const p of preguntas) {
     const tid = temas.indexOf(limpiar(p.tema)) + 1;
@@ -359,7 +362,7 @@ async function adminCargarPreguntas(req, env) {
 async function adminPreguntas(req, env) {
   await sesion(req, env, true);
   const r = await env.DB.prepare(
-    'SELECT p.id, t.nombre AS tema, p.enunciado, p.opciones, p.correcta FROM preguntas p JOIN temas t ON t.id = p.tema_id ORDER BY t.orden, p.orden'
+    'SELECT p.id, t.nombre AS tema, t.ciudad, p.enunciado, p.opciones, p.correcta FROM preguntas p JOIN temas t ON t.id = p.tema_id ORDER BY t.orden, p.orden'
   ).all();
   return json({ preguntas: r.results.map((p) => ({ ...p, opciones: JSON.parse(p.opciones) })) });
 }

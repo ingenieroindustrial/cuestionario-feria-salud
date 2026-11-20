@@ -136,7 +136,7 @@
           <h2>Preguntas del cuestionario</h2>
           <button class="btn sec" id="b-desc-p" type="button">Descargar en Excel</button>
         </div>
-        <p class="muted">Para cambiarlas, descarga el Excel, edítalo y súbelo de nuevo. Columnas: <b>tema</b>, <b>pregunta</b>, <b>opcion_a</b> a <b>opcion_d</b> y <b>correcta</b> (la letra A, B, C o D). Los temas aparecen en el orden del archivo.</p>
+        <p class="muted">Para cambiarlas, descarga el Excel, edítalo y súbelo de nuevo. Columnas: <b>tema</b>, <b>ciudad</b>, <b>pregunta</b>, <b>opcion_a</b> a <b>opcion_d</b> y <b>correcta</b> (la letra A, B, C o D). Los temas aparecen en el orden del archivo.</p>
         <div class="archivo stack">
           <input type="file" id="file-p" accept=".xlsx,.xls,.csv" aria-label="Archivo de preguntas">
           <div id="p-prev" class="muted small"></div>
@@ -294,7 +294,7 @@ function pintar() {
     const comp = cs.filter((c) => c.por_tema[i].r >= c.por_tema[i].n).length;
     const resp = cs.reduce((a, c) => a + c.por_tema[i].r, 0), bien = cs.reduce((a, c) => a + c.por_tema[i].c, 0);
     const p = pct(comp, tot);
-    return `<div class="fila"><span class="nombre">${esc(tm.nombre)}</span><div class="pista" role="img" aria-label="${p}% completaron"><i style="width:${p}%"></i></div><b>${p}%</b>
+    return `<div class="fila"><span class="nombre">${esc(tm.nombre)}${tm.ciudad ? ` <span class="muted small">· ${esc(tm.ciudad)}</span>` : ''}</span><div class="pista" role="img" aria-label="${p}% completaron"><i style="width:${p}%"></i></div><b>${p}%</b>
       <span class="det">${comp} de ${tot} lo completaron · ${pct(bien, resp)}% de aciertos</span></div>`;
   }).join('');
 
@@ -316,7 +316,7 @@ function pintarTabla() {
   const max = 500;
   $('conteo').textContent = `${lista.length} colaboradores` + (lista.length > max ? `. Se muestran los primeros ${max}; usa el buscador o descarga el Excel.` : '');
   const cab = `<thead><tr><th>Documento</th><th>Nombre</th><th>Área</th><th>Estado</th><th class="num">Respondidas</th><th class="num">Aprobación</th>
-    ${rep.temas.map((t, i) => `<th title="${esc(t.nombre)}" class="num">T${i + 1}</th>`).join('')}<th>Le faltan</th><th>Última respuesta</th></tr></thead>`;
+    ${rep.temas.map((t, i) => `<th title="${esc(t.nombre)}${t.ciudad ? ' (' + esc(t.ciudad) + ')' : ''}" class="num">T${i + 1}</th>`).join('')}<th>Le faltan</th><th>Última respuesta</th></tr></thead>`;
   const filas = lista.slice(0, max).map((c) => {
     const pill = c.s.estado === 'Envió' ? 'si' : c.s.estado === 'No ha iniciado' ? 'no' : 'pr';
     const celdas = c.por_tema.map((t, i) => {
@@ -444,7 +444,7 @@ async function exportar() {
       for (const p of preguntasAct) {
         const r = mias.get(p.id);
         detalle.push({
-          Documento: c.documento, Nombre: c.nombre, 'Área': c.area, Tema: p.tema, 'Código': etiqueta.get(p.id), Pregunta: p.enunciado,
+          Documento: c.documento, Nombre: c.nombre, 'Área': c.area, Tema: p.tema, Ciudad: p.ciudad || '', 'Código': etiqueta.get(p.id), Pregunta: p.enunciado,
           'Respuesta dada': r ? `${L[r.o]}) ${p.opciones[r.o] ?? ''}` : '', 'Respuesta correcta': `${L[p.correcta]}) ${p.opciones[p.correcta]}`,
           Resultado: !r ? 'Sin responder' : r.ok ? 'Correcta' : 'Incorrecta',
         });
@@ -454,13 +454,13 @@ async function exportar() {
     const porTema = rep.temas.map((tm, i) => {
       const cs = rep.colaboradores, comp = cs.filter((c) => c.por_tema[i].r >= c.por_tema[i].n).length;
       const resp = cs.reduce((a, c) => a + c.por_tema[i].r, 0), bien = cs.reduce((a, c) => a + c.por_tema[i].c, 0);
-      return { Tema: tm.nombre, 'Colaboradores que lo completaron': comp, 'Total colaboradores': cs.length, '% cobertura': pct(comp, cs.length), '% aciertos': pct(bien, resp) };
+      return { Tema: tm.nombre, Ciudad: tm.ciudad || '', 'Colaboradores que lo completaron': comp, 'Total colaboradores': cs.length, '% cobertura': pct(comp, cs.length), '% aciertos': pct(bien, resp) };
     });
 
     const porPregunta = preguntasAct.map((p) => {
       let resp = 0, bien = 0;
       for (const m of porColab.values()) { const r = m.get(p.id); if (r) { resp++; if (r.ok) bien++; } }
-      return { 'Código': etiqueta.get(p.id), Tema: p.tema, Pregunta: p.enunciado, 'Respuesta correcta': `${L[p.correcta]}) ${p.opciones[p.correcta]}`,
+      return { 'Código': etiqueta.get(p.id), Tema: p.tema, Ciudad: p.ciudad || '', Pregunta: p.enunciado, 'Respuesta correcta': `${L[p.correcta]}) ${p.opciones[p.correcta]}`,
         Respondieron: resp, Acertaron: bien, Fallaron: resp - bien, '% aciertos': pct(bien, resp) };
     });
 
@@ -529,7 +529,7 @@ async function pintarPreguntas() {
   try { preguntasAct = (await api('/api/admin/preguntas')).preguntas; } catch { return; }
   let tema = '', k = 0;
   $('lista-p').innerHTML = preguntasAct.map((p) => {
-    const h = p.tema !== tema ? `<h3>${esc(p.tema)}</h3>` : '';
+    const h = p.tema !== tema ? `<h3>${esc(p.tema)}${p.ciudad ? ` <span class="muted small">· ${esc(p.ciudad)}</span>` : ''}</h3>` : '';
     if (p.tema !== tema) k = 0;
     tema = p.tema; k++;
     return h + `<p><b>${k}. ${esc(p.enunciado)}</b><br>${p.opciones.map((o, i) => i === p.correcta
@@ -538,7 +538,7 @@ async function pintarPreguntas() {
 }
 $('b-desc-p').onclick = () => {
   const wb = XLSX.utils.book_new();
-  const filas = preguntasAct.map((p) => ({ tema: p.tema, pregunta: p.enunciado, opcion_a: p.opciones[0] || '', opcion_b: p.opciones[1] || '', opcion_c: p.opciones[2] || '', opcion_d: p.opciones[3] || '', correcta: 'ABCDEFGH'[p.correcta] }));
+  const filas = preguntasAct.map((p) => ({ tema: p.tema, ciudad: p.ciudad || '', pregunta: p.enunciado, opcion_a: p.opciones[0] || '', opcion_b: p.opciones[1] || '', opcion_c: p.opciones[2] || '', opcion_d: p.opciones[3] || '', correcta: 'ABCDEFGH'[p.correcta] }));
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(filas), 'Preguntas');
   XLSX.writeFile(wb, 'preguntas-feria-salud.xlsx');
 };
@@ -548,7 +548,7 @@ $('file-p').onchange = async (ev) => {
   try {
     const filas = await leerHoja(f);
     filasP = filas.filter((x) => x.tema || x.pregunta).map((x) => ({
-      tema: x.tema, enunciado: x.pregunta,
+      tema: x.tema, ciudad: x.ciudad || '', enunciado: x.pregunta,
       opciones: ['opcion_a', 'opcion_b', 'opcion_c', 'opcion_d', 'opcion_e'].map((k) => x[k]).filter(Boolean),
       correcta: 'ABCDE'.indexOf((x.correcta || '').toUpperCase().trim()),
     }));

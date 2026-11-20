@@ -234,10 +234,11 @@ function pintarTemas() {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'sello' + (ok ? ' completo' : '');
-    b.innerHTML = `${anillo(n, tot, ok)}<div><div class="nombre"></div><div class="estado">${ok ? 'Completo' : n === 0 ? 'Sin empezar' : `Te faltan ${tot - n}`}</div></div>
+    b.innerHTML = `${anillo(n, tot, ok)}<div><div class="ciudad"></div><div class="nombre"></div><div class="estado">${ok ? 'Completo' : n === 0 ? 'Sin empezar' : `Te faltan ${tot - n}`}</div></div>
       <svg class="flecha" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>`;
     b.querySelector('.nombre').textContent = t.nombre;
-    b.setAttribute('aria-label', `${t.nombre}: ${ok ? 'completo' : `${n} de ${tot} preguntas respondidas`}`);
+    b.querySelector('.ciudad').textContent = t.ciudad;
+    b.setAttribute('aria-label', `${t.nombre}${t.ciudad ? ', ' + t.ciudad : ''}: ${ok ? 'completo' : `${n} de ${tot} preguntas respondidas`}`);
     b.onclick = () => abrirTema(i);
     cont.appendChild(b);
   });
@@ -251,7 +252,7 @@ function pintarPuntos() {
 function abrirTema(i) {
   temaActual = i;
   const t = datos.temas[i];
-  $('tema-num').textContent = `Tema ${i + 1} de ${datos.temas.length}`;
+  $('tema-num').textContent = `Tema ${i + 1} de ${datos.temas.length}` + (t.ciudad ? ` · ${t.ciudad}` : '');
   $('tema-nombre').textContent = t.nombre;
   document.title = `${t.nombre} · Feria de la Salud`;
   const est = estadoPlazo();
@@ -376,8 +377,9 @@ function pintarResultado() {
     d.className = 'res-tema' + (perfecto ? ' perfecto' : '');
     const cab = document.createElement('div');
     cab.className = 'res-cab';
-    cab.innerHTML = `<span class="res-nombre"></span><span class="res-marca">${perfecto ? '✓ ' : ''}${t.correctas} de ${t.total}</span>`;
+    cab.innerHTML = `<span><span class="res-ciudad"></span><span class="res-nombre"></span></span><span class="res-marca">${perfecto ? '✓ ' : ''}${t.correctas} de ${t.total}</span>`;
     cab.querySelector('.res-nombre').textContent = t.nombre;
+    cab.querySelector('.res-ciudad').textContent = t.ciudad;
     d.appendChild(cab);
     if (!perfecto) {
       const ul = document.createElement('ul');

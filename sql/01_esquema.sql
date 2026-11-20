@@ -12,7 +12,8 @@ CREATE TABLE IF NOT EXISTS config (
 CREATE TABLE IF NOT EXISTS temas (
   id      INTEGER PRIMARY KEY,
   orden   INTEGER NOT NULL,
-  nombre  TEXT NOT NULL UNIQUE
+  nombre  TEXT NOT NULL UNIQUE,
+  ciudad  TEXT                    -- ciudad de Colombia a la que el tema rinde homenaje
 );
 
 CREATE TABLE IF NOT EXISTS preguntas (

@@ -3,28 +3,49 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0d2b5e">
+<meta name="theme-color" content="#0a2149">
 <title>Feria de la Salud · Medical</title>
 <link rel="preload" href="/fuentes/lexend-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preload" href="/fuentes/lexend-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fuentes/lexend-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/estilos.css">
+<link rel="stylesheet" href="/feria.css">
 <link rel="icon" type="image/png" href="/marca/logo.png">
 </head>
-<body>
+<body class="feria cielo-noche">
+
+<!-- Tinta gastada para los sellos -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <filter id="tinta-gastada" x="-10%" y="-10%" width="120%" height="120%">
+    <feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="7" result="ruido"/>
+    <feColorMatrix in="ruido" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -1.3 1.25" result="huecos"/>
+    <feComposite in="SourceGraphic" in2="huecos" operator="in" result="gastado"/>
+    <feTurbulence type="turbulence" baseFrequency=".05" numOctaves="1" seed="3" result="onda"/>
+    <feDisplacementMap in="gastado" in2="onda" scale=".8"/>
+  </filter>
+</svg>
 
 <!-- ================= Ingreso ================= -->
-<div id="v-login" class="ingreso hidden">
-  <header class="banda">
-    <div class="contenido">
+<div id="v-login" class="f-ingreso hidden">
+  <div class="escena">
+    <section class="lado">
       <span class="logo-chip"><img src="/marca/logo.png" alt="Medical"></span>
-      <img class="zero" src="/marca/mascota-presentando.png" alt="ZERO, la mascota de Medical, te da la bienvenida">
-    </div>
-  </header>
-  <main class="marco">
-    <div class="tarjeta">
-      <h1>Feria de la Salud</h1>
-      <p class="bajada">Responde 30 preguntas sobre 10 temas de salud. Puedes hacerlo por partes: cada respuesta se guarda en cuanto la marcas, y cada tema lo envías cuando estés listo. Para volver, entra con el mismo número de documento.</p>
-      <form id="f-login" class="stack" style="margin-top:24px" novalidate>
+      <h1>Diez ciudades.<br>Un <em>pasaporte</em>.</h1>
+      <p>La Feria de la Salud recorre Colombia. Responde cada tema, envíalo y gana el sello de su ciudad.</p>
+      <div class="ciudades-cinta" aria-hidden="true">
+        <span>Bogotá</span><span>Armenia</span><span>Leticia</span><span>Cali</span><span>Bucaramanga</span><span>Cartagena</span><span>Ipiales</span><span>Barranquilla</span><span>Medellín</span><span>Villavicencio</span>
+      </div>
+    </section>
+    <div class="libro guilloche" id="libro">
+      <div class="zero-ingreso">
+        <div class="globo" id="zl-globo" role="status" aria-live="polite"></div>
+        <button class="zero-figura" id="zl" type="button" aria-label="ZERO, la mascota de Medical">
+          <div class="respira"><img id="zl-img" src="/marca/mascota-presentando.png" alt=""></div>
+        </button>
+      </div>
+      <div class="encabezado"><b>Pasaporte</b><span>Feria de la Salud</span></div>
+      <h2>Datos del viajero</h2>
+      <p class="bajada">Si es tu primera vez, te registramos. Si ya empezaste, sigues donde quedaste.</p>
+      <form id="f-login" novalidate>
         <div>
           <label class="campo" for="nom">Nombre completo</label>
           <input id="nom" autocomplete="name" autocapitalize="words" placeholder="Ej: María Fernanda López Ruiz" aria-describedby="login-err">
@@ -34,125 +55,141 @@
           <input id="doc" inputmode="numeric" autocomplete="username" placeholder="Ej: 1020304050" aria-describedby="login-err">
         </div>
         <div id="login-err" class="nota error hidden" role="alert"></div>
-        <button class="btn full" id="b-login" type="submit">Entrar</button>
+        <button class="btn full" id="b-login" type="submit">Abrir mi pasaporte</button>
       </form>
     </div>
-  </main>
+  </div>
 </div>
 
-<!-- ================= Temas ================= -->
+<!-- ================= Pasaporte (temas) ================= -->
 <div id="v-temas" class="hidden">
-  <header class="banda">
+  <header class="f-cabeza">
     <div class="contenido">
       <div class="barra">
         <span class="logo-chip"><img src="/marca/logo.png" alt="Medical"></span>
         <span class="spacer"></span>
         <button class="btn claro chico" id="b-salir" type="button">Salir</button>
       </div>
-      <div class="saludo">
+      <div class="titular">
         <div>
+          <div class="eyebrow">Pasaporte de</div>
           <h1 id="saludo"></h1>
-          <p class="sub" id="titulo"></p>
-          <div class="medidor" aria-live="polite">
-            <div class="cifras"><b id="prog-num">0</b><span id="prog-txt"></span></div>
-            <div class="pista" role="progressbar" aria-label="Preguntas respondidas" id="prog-aria" aria-valuemin="0"><i id="prog-bar" style="width:0"></i></div>
-          </div>
+          <p class="plazo-l" id="plazo-txt"></p>
         </div>
-        <img class="zero" id="zero-temas" src="/marca/mascota-portatil.png" alt="">
+        <div class="marcador" aria-live="polite">
+          <div class="cifra"><span id="n-sellos">0</span><small id="n-total">/10</small></div>
+          <div class="que">sellos en tu<br>pasaporte</div>
+          <div class="cuentas" id="cuentas" aria-hidden="true"></div>
+        </div>
       </div>
     </div>
   </header>
-  <main class="cuerpo">
-    <p class="plazo" id="plazo">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
-      <span id="plazo-txt"></span>
-    </p>
-    <div id="aviso-plazo" class="nota alerta hidden" role="status"></div>
-    <section id="acumulado" class="felicidades hidden" aria-live="polite">
-      <img src="/marca/mascota-tapabocas-ok.png" alt="">
-      <div>
-        <p class="muted small">Tu aprobación hasta ahora</p>
-        <div class="acum"><b id="acum-pct"></b><span id="acum-det"></span></div>
-        <button class="btn sec chico" id="b-ver-res" type="button" style="margin-top:12px">Ver mi resultado y lo que fallé</button>
-      </div>
-    </section>
-    <section>
-      <h2>Tus temas</h2>
-      <p class="muted small" style="margin-top:4px">Responde las 3 preguntas de un tema y envíalo para ver cómo te fue. Puedes enviar cada tema por separado, en el orden que quieras.</p>
-      <div class="pasaporte" id="temas"></div>
-    </section>
+  <main class="hoja guilloche">
+    <div class="cuerpo">
+      <div id="aviso-plazo" class="nota alerta hidden" role="status"></div>
+      <section id="acumulado" class="acumulado-f hidden" aria-live="polite">
+        <div class="pct" id="acum-pct">0%</div>
+        <div class="det"><b>Tu aprobación hasta ahora</b><span id="acum-det"></span></div>
+        <button class="btn sec" id="b-ver-res" type="button">Ver mi resultado</button>
+      </section>
+      <section>
+        <div class="seccion-t">
+          <h2>Tus ciudades</h2>
+          <p>Responde un tema y envíalo para ganar su sello, en el orden que quieras.</p>
+        </div>
+        <div class="sellos" id="temas" style="margin-top:16px"></div>
+      </section>
+    </div>
   </main>
 </div>
 
 <!-- ================= Un tema ================= -->
 <div id="v-tema" class="hidden">
-  <header class="tema-top">
-    <div class="contenido" style="max-width:860px;margin:0 auto">
-      <button class="btn claro chico" id="b-volver" type="button">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
-        Mis temas
-      </button>
-      <div class="de" id="tema-num" style="margin-top:10px"></div>
-      <h1 id="tema-nombre"></h1>
-      <div class="puntos" id="puntos" aria-hidden="true"></div>
+  <header class="f-tema-cab">
+    <div class="contenido">
+      <div>
+        <button class="btn claro chico" id="b-volver" type="button">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+          Mi pasaporte
+        </button>
+        <div class="de" id="tema-num"></div>
+        <h1 id="tema-nombre"></h1>
+        <div class="puntos" id="puntos" aria-hidden="true"></div>
+      </div>
+      <div id="tema-sello"></div>
     </div>
   </header>
-  <main class="cuerpo">
-    <div id="aviso-tema" class="nota alerta hidden" role="status"></div>
-    <form id="preguntas" onsubmit="return false"></form>
-    <section id="tema-envio" class="envio-tema hidden" aria-live="polite">
-      <div>
-        <h2 id="tema-envio-t"></h2>
-        <p class="muted" id="tema-envio-p"></p>
-      </div>
-      <div id="env-err" class="nota error hidden" role="alert"></div>
-      <button class="btn" id="b-enviar" type="button">Enviar este tema</button>
-    </section>
-    <section id="tema-res" class="hidden" aria-live="polite">
-      <h2>Tu resultado en este tema</h2>
-      <div id="tema-res-caja" class="resultado"></div>
-    </section>
-    <nav class="navegacion" aria-label="Cambiar de tema">
-      <button class="btn sec" id="b-ant" type="button">Tema anterior</button>
-      <button class="btn" id="b-sig" type="button">Siguiente tema</button>
-    </nav>
+  <main class="hoja guilloche">
+    <div class="cuerpo">
+      <div id="aviso-tema" class="nota alerta hidden" role="status" style="max-width:820px;margin-inline:auto"></div>
+      <form id="preguntas" class="preguntas-f" onsubmit="return false"></form>
+      <section id="tema-envio" class="envio-f hidden" aria-live="polite">
+        <div>
+          <h2 id="tema-envio-t"></h2>
+          <p id="tema-envio-p"></p>
+        </div>
+        <button class="btn" id="b-enviar" type="button">Enviar y ganar el sello</button>
+        <div id="env-err" class="nota error hidden" role="alert"></div>
+      </section>
+      <section id="tema-res" class="veredicto hidden" aria-live="polite">
+        <div id="tema-res-sello"></div>
+        <div>
+          <h2 id="tema-res-t"></h2>
+          <p id="tema-res-p"></p>
+        </div>
+      </section>
+      <nav class="navegacion-f" aria-label="Cambiar de tema">
+        <button class="btn sec" id="b-ant" type="button">Ciudad anterior</button>
+        <button class="btn" id="b-sig" type="button">Siguiente ciudad</button>
+      </nav>
+    </div>
   </main>
 </div>
 
 <!-- ================= Resultado ================= -->
 <div id="v-resultado" class="hidden">
-  <header class="banda">
+  <header class="f-res-cab">
     <div class="contenido">
       <div class="barra">
         <span class="logo-chip"><img src="/marca/logo.png" alt="Medical"></span>
         <span class="spacer"></span>
         <button class="btn claro chico" id="b-salir2" type="button">Salir</button>
       </div>
-      <div class="saludo">
-        <div>
-          <p class="sub" id="res-nombre"></p>
-          <div class="nota-final"><b id="res-pct"></b><span>de aprobación</span></div>
-          <p class="sub" id="res-detalle"></p>
+      <div class="gran">
+        <div class="dial" role="img" id="res-dial">
+          <svg viewBox="0 0 200 200" aria-hidden="true"><circle class="pista" cx="100" cy="100" r="86"/><circle class="valor" id="res-arco" cx="100" cy="100" r="86" stroke-dasharray="540.35" stroke-dashoffset="540.35"/></svg>
+          <div class="centro"><b id="res-pct">0%</b><span>de aprobación</span></div>
         </div>
-        <img class="zero" id="res-zero" src="/marca/mascota-celebrando.png" alt="">
+        <div>
+          <h1 id="res-titulo"></h1>
+          <p class="sub" id="res-detalle"></p>
+          <p class="sub" id="res-enviado"></p>
+          <button class="btn claro" id="b-res-volver" type="button" style="margin-top:18px">Volver a mi pasaporte</button>
+        </div>
       </div>
     </div>
   </header>
-  <main class="cuerpo">
-    <p class="muted" id="res-enviado"></p>
-    <button class="btn sec" id="b-res-volver" type="button" style="margin-top:12px">Volver a mis temas</button>
-    <section>
-      <h2>Tu resultado por tema</h2>
-      <div id="res-temas" class="resultado"></div>
-    </section>
+  <main class="hoja guilloche">
+    <div class="cuerpo">
+      <div class="seccion-t"><h2>Sello por sello</h2><p>Aquí ves la respuesta correcta de lo que fallaste.</p></div>
+      <div id="res-temas" class="res-grid"></div>
+    </div>
   </main>
+</div>
+
+<!-- ZERO, el guía -->
+<div class="zero-guia hidden" id="zero-guia">
+  <div class="globo" id="zg-globo" role="status" aria-live="polite"></div>
+  <button class="zero-figura" id="zg" type="button" aria-label="Hablar con ZERO">
+    <div class="respira"><img id="zg-img" src="/marca/mascota-portatil.png" alt=""></div>
+  </button>
 </div>
 
 <!-- Confirmar envío -->
 <dialog id="dlg-enviar" aria-labelledby="dlg-enviar-t">
   <form method="dialog">
     <h2 id="dlg-enviar-t">¿Enviar este tema?</h2>
-    <p class="muted" id="dlg-enviar-p">Verás tu resultado del tema y ya no podrás cambiar sus respuestas.</p>
+    <p class="muted" id="dlg-enviar-p">Verás cuántas acertaste y ganarás el sello de la ciudad. Después ya no podrás cambiar estas respuestas.</p>
     <div class="acciones">
       <button class="btn sec" value="no" type="submit">Seguir revisando</button>
       <button class="btn" value="si" type="submit">Enviar</button>
@@ -160,7 +197,8 @@
   </form>
 </dialog>
 
-<div id="cargando" class="vacio" style="margin-top:20vh" role="status">Cargando…</div>
+<canvas id="confeti" aria-hidden="true"></canvas>
+<div id="cargando" class="vacio" style="margin-top:30vh;color:#c9d7f0" role="status">Abriendo tu pasaporte…</div>
 <div id="red" class="toast hidden" role="status" aria-live="polite"></div>
 
 <script>
@@ -173,16 +211,22 @@ const ls = {
 let token = ls.get(LS_TOKEN);
 let datos = null;      // respuesta de /api/cuestionario
 let temaActual = 0;
+let recienSellado = null;   // tema que se acaba de enviar: su sello se estampa al volver al pasaporte
 let pendientes = {};   // pregunta_id -> opción, aún sin confirmar por el servidor
 try { pendientes = JSON.parse(ls.get(LS_PEND) || '{}') || {}; } catch { pendientes = {}; }
 
 const $ = (id) => document.getElementById(id);
 const LETRAS = 'ABCDEFGH';
+const QUIETO = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const fmt = (iso) => new Date(iso).toLocaleString('es-CO', { weekday: 'long', day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit' });
 const guardarPend = () => ls.set(LS_PEND, JSON.stringify(pendientes));
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const primerNombre = () => (datos?.nombre || '').split(' ')[0];
+const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function vista(id) {
   for (const v of ['v-login', 'v-temas', 'v-tema', 'v-resultado', 'cargando']) $(v).classList.toggle('hidden', v !== id);
+  $('zero-guia').classList.toggle('hidden', id === 'v-login' || id === 'cargando');
   window.scrollTo(0, 0);
 }
 
@@ -207,41 +251,122 @@ function estadoPlazo() {
 
 const respondidas = (t) => t.preguntas.filter((p) => p.respuesta !== null).length;
 
-// Anillo de 3 segmentos (uno por pregunta)
-function anillo(hechas, total, completo) {
-  const r = 22, c = 2 * Math.PI * r, gap = 5, seg = c / total - gap;
-  let arcos = '';
-  for (let i = 0; i < total; i++) {
-    const color = i < hechas ? 'var(--azul)' : 'var(--cielo-2)';
-    arcos += `<circle cx="28" cy="28" r="${r}" fill="none" stroke="${color}" stroke-width="6" stroke-linecap="round"
-      stroke-dasharray="${seg} ${c - seg}" stroke-dashoffset="${-(i * (seg + gap)) - gap / 2}"/>`;
-  }
-  const centro = completo ? '<circle cx="28" cy="28" r="15" fill="var(--azul)"/>' : '';
-  const num = completo ? '✓' : `${hechas}/${total}`;
-  return `<div class="anillo" aria-hidden="true"><svg viewBox="0 0 56 56">${centro}${arcos}</svg><span class="num">${num}</span></div>`;
+// ------------------------------------------------ ZERO
+const POSE = {
+  portatil: '/marca/mascota-portatil.png', caminando: '/marca/mascota-caminando.png', celebrando: '/marca/mascota-celebrando.png',
+  presentando: '/marca/mascota-presentando.png', ok: '/marca/mascota-tapabocas-ok.png', brazos: '/marca/mascota-brazos-cruzados.png',
+};
+Object.values(POSE).forEach((src) => { const i = new Image(); i.src = src; });
+
+function crearZero(pref) {
+  const fig = $(pref), img = $(pref + '-img'), globo = $(pref + '-globo');
+  let timer = null;
+  return {
+    fig,
+    decir(texto, pose, ms = 7000) {
+      if (pose && POSE[pose] && !img.src.endsWith(POSE[pose])) img.src = POSE[pose];
+      globo.textContent = texto;
+      globo.classList.add('ve');
+      if (!QUIETO) { fig.classList.remove('salta'); void fig.offsetWidth; fig.classList.add('salta'); }
+      clearTimeout(timer);
+      if (ms) timer = setTimeout(() => globo.classList.remove('ve'), ms);
+    },
+    pose(p) { if (POSE[p] && !img.src.endsWith(POSE[p])) img.src = POSE[p]; },
+    callar() { globo.classList.remove('ve'); },
+  };
+}
+const zl = crearZero('zl');   // en el ingreso
+const zg = crearZero('zg');   // guía en el resto de la app
+
+// ZERO mira hacia donde está el cursor
+let mirada = null;
+window.addEventListener('pointermove', (ev) => {
+  if (QUIETO || mirada) return;
+  mirada = requestAnimationFrame(() => {
+    mirada = null;
+    for (const z of [zl, zg]) {
+      const r = z.fig.getBoundingClientRect();
+      if (!r.width) continue;
+      const dx = Math.max(-1, Math.min(1, (ev.clientX - (r.left + r.width / 2)) / 500));
+      const dy = Math.max(-1, Math.min(1, (ev.clientY - (r.top + r.height / 2)) / 500));
+      z.fig.style.setProperty('--zy', (dx * 20).toFixed(1) + 'deg');
+      z.fig.style.setProperty('--zx', (-dy * 8).toFixed(1) + 'deg');
+    }
+  });
+}, { passive: true });
+
+let consejo = 0;
+function consejos() {
+  const lista = [
+    'Cada respuesta se guarda sola, incluso si se cae el internet.',
+    'Puedes enviar los temas en el orden que quieras.',
+    'Al enviar un tema te muestro la respuesta correcta de lo que fallaste.',
+    'Cada tema rinde homenaje a una ciudad de Colombia. ¡Llena tu pasaporte!',
+  ];
+  if (datos) lista.push(`Tienes hasta el ${fmt(datos.cierre)}.`);
+  return lista[consejo++ % lista.length];
+}
+$('zg').onclick = () => zg.decir(consejos(), null, 6000);
+$('zl').onclick = () => zl.decir('¡Hola! Soy ZERO. Escribe tu nombre y tu documento para abrir tu pasaporte.', 'presentando', 6000);
+
+// ------------------------------------------------ Sellos
+const TINTAS = ['var(--tinta-sello)', 'var(--tinta-rosa)', 'var(--tinta-verde)'];
+const giroDe = (id) => ((id * 37) % 23) - 11;
+
+function selloSVG({ id, ciudad, centro, sub, lleno }) {
+  const c = (ciudad || 'Feria').toUpperCase();
+  const fs = Math.min(11, 118 / (c.length * 0.92));
+  const k = 's' + id + Math.random().toString(36).slice(2, 6);
+  return `<svg class="sello-svg ${lleno ? 'sv-lleno' : 'sv-hueco'}" viewBox="0 0 120 120" aria-hidden="true">
+    <defs>
+      <path id="${k}a" d="M 60,60 m -42,0 a 42,42 0 1,1 84,0"/>
+      <path id="${k}b" d="M 60,60 m -45,0 a 45,45 0 0,0 90,0"/>
+    </defs>
+    <g class="tinta">
+      <circle class="aro" cx="60" cy="60" r="56" stroke-width="3"/>
+      <circle class="aro" cx="60" cy="60" r="50" stroke-width="1" ${lleno ? '' : 'stroke-dasharray="3 4"'}/>
+      <circle class="aro" cx="60" cy="60" r="31" stroke-width="1.6"/>
+      <text font-size="${fs.toFixed(1)}" font-weight="700" letter-spacing="2"><textPath href="#${k}a" startOffset="50%" text-anchor="middle">${esc(c)}</textPath></text>
+      <text font-size="6.4" font-weight="600" letter-spacing="1.8"><textPath href="#${k}b" startOffset="50%" text-anchor="middle">FERIA DE LA SALUD</textPath></text>
+      <circle cx="17" cy="60" r="1.8" fill="currentColor"/><circle cx="103" cy="60" r="1.8" fill="currentColor"/>
+      <text x="60" y="${sub ? 63 : 68}" text-anchor="middle" font-size="${centro.length > 3 ? 15 : 20}" font-weight="700">${esc(centro)}</text>
+      ${sub ? `<text x="60" y="76" text-anchor="middle" font-size="6.2" font-weight="600" letter-spacing="1.4">${esc(sub)}</text>` : ''}
+    </g>
+  </svg>`;
 }
 
-// Aprobación acumulada sobre los temas ya enviados
+function selloDeTema(t, i, extra = {}) {
+  const r = t.resultado;
+  return selloSVG({ id: t.id, ciudad: t.ciudad || t.nombre, lleno: !!r, centro: r ? `${r.correctas}/${r.total}` : String(i + 1).padStart(2, '0'), sub: r ? 'VISITADO' : '', ...extra });
+}
+
+// ------------------------------------------------ Pasaporte
 function acumulado() {
   const env = datos.temas.filter((t) => t.resultado);
   const correctas = env.reduce((a, t) => a + t.resultado.correctas, 0), total = env.reduce((a, t) => a + t.resultado.total, 0);
   return { temas: env.length, correctas, total, porcentaje: total ? Math.round(100 * correctas / total) : 0 };
 }
 
+function contar(el, hasta, sufijo = '', ms = 900) {
+  if (QUIETO) { el.textContent = hasta + sufijo; return; }
+  const desde = parseInt(el.textContent, 10) || 0, t0 = performance.now();
+  const paso = (t) => {
+    const k = Math.min(1, (t - t0) / ms), e = 1 - Math.pow(1 - k, 3);
+    el.textContent = Math.round(desde + (hasta - desde) * e) + sufijo;
+    if (k < 1) requestAnimationFrame(paso);
+  };
+  requestAnimationFrame(paso);
+}
+
 function pintarTemas() {
-  let r = 0, total = 0;
-  for (const t of datos.temas) { r += respondidas(t); total += t.preguntas.length; }
-  const ac = acumulado();
-  $('saludo').textContent = 'Hola, ' + (datos.nombre || '').split(' ')[0];
-  $('titulo').textContent = `${ac.temas} de ${datos.temas.length} temas enviados`;
-  $('prog-num').textContent = r;
-  $('prog-txt').textContent = `de ${total} preguntas respondidas`;
-  $('prog-bar').style.width = (total ? 100 * r / total : 0) + '%';
-  $('prog-aria').setAttribute('aria-valuemax', total); $('prog-aria').setAttribute('aria-valuenow', r);
+  const ac = acumulado(), n = datos.temas.length;
+  $('saludo').textContent = datos.nombre || '';
+  contar($('n-sellos'), ac.temas);
+  $('n-total').textContent = '/' + n;
+  $('cuentas').innerHTML = datos.temas.map((t) => `<i class="${t.resultado ? 'si' : ''}"></i>`).join('');
   $('acumulado').classList.toggle('hidden', ac.temas === 0);
-  $('acum-pct').textContent = ac.porcentaje + '%';
-  $('acum-det').textContent = `Acertaste ${ac.correctas} de ${ac.total} preguntas en ${ac.temas} ${ac.temas === 1 ? 'tema enviado' : 'temas enviados'}`;
-  $('zero-temas').src = total > 0 && r === total ? '/marca/mascota-caminando.png' : '/marca/mascota-portatil.png';
+  contar($('acum-pct'), ac.porcentaje, '%');
+  $('acum-det').textContent = `Acertaste ${ac.correctas} de ${ac.total} preguntas en ${ac.temas} ${ac.temas === 1 ? 'ciudad' : 'ciudades'}.`;
 
   const est = estadoPlazo();
   $('plazo-txt').textContent = est === 'antes' ? `Abre el ${fmt(datos.inicio)}` : est === 'cerrado' ? `Cerró el ${fmt(datos.cierre)}` : `Tienes hasta el ${fmt(datos.cierre)}`;
@@ -253,21 +378,48 @@ function pintarTemas() {
   const cont = $('temas');
   cont.innerHTML = '';
   datos.temas.forEach((t, i) => {
-    const n = respondidas(t), tot = t.preguntas.length, env = !!t.resultado;
-    const estado = env ? `Enviado · ${t.resultado.correctas} de ${t.resultado.total} correctas` : n === tot ? 'Listo para enviar' : n === 0 ? 'Sin empezar' : `Te faltan ${tot - n}`;
+    const r = respondidas(t), tot = t.preguntas.length, env = !!t.resultado;
+    const estado = env ? `Sello ganado · ${t.resultado.correctas} de ${t.resultado.total}` : r === tot ? 'Lista para enviar' : r === 0 ? 'Sin empezar' : `Te ${tot - r === 1 ? 'falta 1' : `faltan ${tot - r}`}`;
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = 'sello' + (env ? ' completo' : n === tot ? ' listo' : '');
-    b.innerHTML = `${anillo(n, tot, env)}<div><div class="ciudad"></div><div class="nombre"></div><div class="estado">${estado}</div></div>
-      <svg class="flecha" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>`;
-    b.querySelector('.nombre').textContent = t.nombre;
-    b.querySelector('.ciudad').textContent = t.ciudad;
+    b.className = 'ciudad-c' + (env ? ' enviado' : r === tot ? ' listo' : '') + (recienSellado === t.id ? ' estampando' : '');
+    b.style.setProperty('--i', i);
+    b.style.setProperty('--ink', TINTAS[i % TINTAS.length]);
+    b.style.setProperty('--giro', giroDe(t.id) + 'deg');
+    b.innerHTML = `${selloDeTema(t, i)}<div class="meta"><div class="num">${String(i + 1).padStart(2, '0')} · ${esc(t.ciudad)}</div><div class="tema">${esc(t.nombre)}</div>
+      <div class="est"><span class="barrita">${t.preguntas.map((p) => `<i class="${p.respuesta !== null ? 'si' : ''}"></i>`).join('')}</span>${estado}</div></div>`;
     b.setAttribute('aria-label', `${t.nombre}${t.ciudad ? ', ' + t.ciudad : ''}: ${estado}`);
     b.onclick = () => abrirTema(i);
     cont.appendChild(b);
   });
+  if (recienSellado) setTimeout(() => (recienSellado = null), 50);
 }
 
+// Inclinación 3D de las tarjetas al pasar el cursor
+if (!QUIETO && matchMedia('(hover: hover)').matches) {
+  $('temas').addEventListener('pointermove', (ev) => {
+    const c = ev.target.closest('.ciudad-c'); if (!c) return;
+    const r = c.getBoundingClientRect();
+    c.style.setProperty('--ry', (((ev.clientX - r.left) / r.width - .5) * 10).toFixed(2) + 'deg');
+    c.style.setProperty('--rx', ((.5 - (ev.clientY - r.top) / r.height) * 10).toFixed(2) + 'deg');
+  });
+  $('temas').addEventListener('pointerout', (ev) => {
+    const c = ev.target.closest('.ciudad-c');
+    if (c && !c.contains(ev.relatedTarget)) { c.style.setProperty('--rx', '0deg'); c.style.setProperty('--ry', '0deg'); }
+  });
+}
+
+function saludoZero() {
+  const ac = acumulado(), n = datos.temas.length, nom = primerNombre();
+  const listas = datos.temas.filter((t) => !t.resultado && respondidas(t) === t.preguntas.length).length;
+  if (estadoPlazo() === 'cerrado') return zg.decir(`La feria ya cerró, ${nom}. Gracias por participar.`, 'presentando');
+  if (ac.temas === 0 && datos.temas.every((t) => respondidas(t) === 0)) return zg.decir(`¡Hola, ${nom}! Soy ZERO. Elige una ciudad para empezar tu recorrido.`, 'presentando');
+  if (listas) return zg.decir(`Tienes ${listas === 1 ? 'una ciudad lista' : `${listas} ciudades listas`} para enviar. ¡Ve por esos sellos!`, 'caminando');
+  if (ac.temas) return zg.decir(`Llevas ${ac.temas} de ${n} sellos, ${nom}. ¡Sigue así!`, ac.porcentaje >= 80 ? 'ok' : 'caminando');
+  zg.decir(`¡Qué bueno verte, ${nom}! Sigue donde quedaste.`, 'portatil');
+}
+
+// ------------------------------------------------ Un tema
 function pintarPuntos() {
   const t = datos.temas[temaActual];
   $('puntos').innerHTML = t.preguntas.map((p) => `<i class="${p.respuesta !== null ? 'si' : ''}"></i>`).join('');
@@ -276,31 +428,43 @@ function pintarPuntos() {
 function abrirTema(i) {
   temaActual = i;
   const t = datos.temas[i];
-  $('tema-num').textContent = `Tema ${i + 1} de ${datos.temas.length}` + (t.ciudad ? ` · ${t.ciudad}` : '');
+  $('tema-num').textContent = `Ciudad ${i + 1} de ${datos.temas.length}` + (t.ciudad ? ` · ${t.ciudad}` : '');
   $('tema-nombre').textContent = t.nombre;
+  $('tema-sello').innerHTML = selloSVG({ id: t.id, ciudad: t.ciudad || t.nombre, lleno: false, centro: String(i + 1).padStart(2, '0') });
   document.title = `${t.nombre} · Feria de la Salud`;
   const est = estadoPlazo();
   const bloqueado = est !== 'abierto' || !!t.resultado;
   const av = $('aviso-tema');
   av.classList.toggle('hidden', est === 'abierto');
   av.textContent = est === 'antes' ? 'El cuestionario todavía no ha abierto.' : 'El plazo terminó. Ya no puedes cambiar tus respuestas.';
+
+  // Tras enviar: marcar en cada pregunta la correcta y, si falló, la suya
+  const falladas = new Map((t.resultado?.falladas || []).map((f) => [f.enunciado, f]));
   const cont = $('preguntas');
   cont.innerHTML = '';
   t.preguntas.forEach((p, k) => {
+    const caja = document.createElement('div');
+    caja.className = 'preg-c';
+    caja.style.setProperty('--i', k);
     const fs = document.createElement('fieldset');
     fs.className = 'pregunta';
     const lg = document.createElement('legend');
-    lg.innerHTML = `<span class="n">${k + 1}.</span>`;
+    lg.innerHTML = `<span class="n">${k + 1}</span>`;
     lg.append(document.createTextNode(p.enunciado));
     const ops = document.createElement('div');
     ops.className = 'opciones';
     const g = document.createElement('div');
     g.className = 'guardado';
     g.setAttribute('aria-live', 'polite');
-    if (p.respuesta !== null) marcarEstado(g, pendientes[p.id] !== undefined ? 'pendiente' : 'ok');
+    if (p.respuesta !== null && !t.resultado) marcarEstado(g, pendientes[p.id] !== undefined ? 'pendiente' : 'ok');
+    const f = falladas.get(p.enunciado);
     p.opciones.forEach((o, idx) => {
       const lab = document.createElement('label');
       lab.className = 'opcion';
+      if (t.resultado) {
+        if (f ? o === f.correcta : idx === p.respuesta) lab.classList.add('es-correcta');
+        else if (f && idx === p.respuesta) lab.classList.add('es-error');
+      }
       const inp = document.createElement('input');
       inp.type = 'radio'; inp.name = 'p' + p.id; inp.value = idx;
       inp.checked = p.respuesta === idx;
@@ -313,13 +477,44 @@ function abrirTema(i) {
       ops.appendChild(lab);
     });
     fs.append(lg, ops, g);
-    cont.appendChild(fs);
+    caja.appendChild(fs);
+    cont.appendChild(caja);
   });
   pintarPuntos();
   pintarEnvioTema();
   $('b-ant').disabled = i === 0;
-  $('b-sig').textContent = i === datos.temas.length - 1 ? 'Ver mis temas' : 'Siguiente tema';
+  $('b-sig').textContent = i === datos.temas.length - 1 ? 'Ver mi pasaporte' : 'Siguiente ciudad';
   vista('v-tema');
+  if (t.resultado) zg.decir(`Ya tienes el sello de ${t.ciudad || t.nombre}. Te marqué en verde las respuestas correctas.`, 'ok', 5000);
+  else if (est === 'abierto') zg.decir(`Bienvenido a ${t.ciudad || t.nombre}. ${t.preguntas.length === 1 ? 'Una pregunta' : `${t.preguntas.length} preguntas`} sobre ${t.nombre.toLowerCase()}.`, 'portatil', 5000);
+}
+
+// Debajo de las preguntas: botón para enviar el tema, o su sello si ya se envió
+function pintarEnvioTema(nuevo = false) {
+  const t = datos.temas[temaActual];
+  const n = respondidas(t), tot = t.preguntas.length;
+  const res = $('tema-res');
+  res.classList.toggle('hidden', !t.resultado);
+  res.classList.toggle('nuevo', nuevo);
+  if (t.resultado) {
+    const r = t.resultado;
+    $('tema-res-sello').innerHTML = selloDeTema(t, temaActual);
+    res.style.setProperty('--ink', TINTAS[temaActual % TINTAS.length]);
+    $('tema-res-t').textContent = r.correctas === r.total ? `¡Perfecto! ${r.correctas} de ${r.total}` : `Acertaste ${r.correctas} de ${r.total}`;
+    $('tema-res-p').textContent = r.correctas === r.total ? `Sello de ${t.ciudad || t.nombre} ganado sin un solo error.`
+      : `Sello de ${t.ciudad || t.nombre} ganado. Arriba ves en verde la respuesta correcta de lo que fallaste.`;
+  }
+  const mostrar = !t.resultado && estadoPlazo() === 'abierto';
+  $('tema-envio').classList.toggle('hidden', !mostrar);
+  if (!mostrar) return;
+  const listo = n === tot;
+  $('tema-envio').classList.toggle('listo', listo);
+  $('tema-envio-t').textContent = listo ? `¿Listo con ${t.ciudad || 'este tema'}?` : 'Envía el tema cuando termines';
+  $('tema-envio-p').textContent = listo
+    ? 'Verás cuántas acertaste y la respuesta correcta de las que fallaste. Después ya no podrás cambiarlas.'
+    : `Te ${tot - n === 1 ? 'falta 1 pregunta' : `faltan ${tot - n} preguntas`} para poder enviarlo.`;
+  $('b-enviar').disabled = !listo;
+  $('env-err').classList.add('hidden');
 }
 
 function marcarEstado(g, estado, msg) {
@@ -329,33 +524,17 @@ function marcarEstado(g, estado, msg) {
   g.append(document.createTextNode(txt));
 }
 
-// Debajo de las preguntas: botón para enviar el tema, o su resultado si ya se envió
-function pintarEnvioTema() {
-  const t = datos.temas[temaActual];
-  const n = respondidas(t), tot = t.preguntas.length;
-  $('tema-res').classList.toggle('hidden', !t.resultado);
-  if (t.resultado) {
-    $('tema-res-caja').innerHTML = '';
-    $('tema-res-caja').appendChild(cajaTema(t.resultado));
-  }
-  const mostrar = !t.resultado && estadoPlazo() === 'abierto';
-  $('tema-envio').classList.toggle('hidden', !mostrar);
-  if (!mostrar) return;
-  const listo = n === tot;
-  $('tema-envio').classList.toggle('listo', listo);
-  $('tema-envio-t').textContent = listo ? '¿Listo con este tema?' : 'Envía el tema cuando termines';
-  $('tema-envio-p').textContent = listo
-    ? 'Al enviarlo verás cuántas acertaste y la respuesta correcta de las que fallaste. Después ya no podrás cambiarlas.'
-    : `Te ${tot - n === 1 ? 'falta 1 pregunta' : `faltan ${tot - n} preguntas`} de este tema para poder enviarlo.`;
-  $('b-enviar').disabled = !listo;
-  $('env-err').classList.add('hidden');
-}
-
 async function responder(p, idx, g) {
+  const t = datos.temas[temaActual];
+  const antes = respondidas(t);
   p.respuesta = idx;
   pendientes[p.id] = idx; guardarPend();
   pintarPuntos();
   pintarEnvioTema();
+  if (antes < t.preguntas.length && respondidas(t) === t.preguntas.length) {
+    zg.decir(`¡Listo! Envía el tema para ganar el sello de ${t.ciudad || t.nombre}.`, 'caminando', 6000);
+    setTimeout(() => $('tema-envio').scrollIntoView({ behavior: QUIETO ? 'auto' : 'smooth', block: 'center' }), 350);
+  }
   marcarEstado(g, 'guardando');
   const ok = await enviar(p.id, idx);
   if (pendientes[p.id] !== undefined && pendientes[p.id] !== idx) return; // hubo un clic más reciente
@@ -411,56 +590,90 @@ function sesionVencida() {
   vista('v-login');
 }
 
+// ------------------------------------------------ Resultado
 function pintarResultado() {
   const r = acumulado();
   const todos = r.temas === datos.temas.length;
-  $('res-nombre').textContent = datos.nombre;
-  $('res-pct').textContent = r.porcentaje + '%';
-  $('res-detalle').textContent = todos ? `Acertaste ${r.correctas} de ${r.total} preguntas`
-    : `Acertaste ${r.correctas} de ${r.total} preguntas en ${r.temas} de ${datos.temas.length} temas enviados`;
-  $('res-zero').src = r.porcentaje >= 80 ? '/marca/mascota-celebrando.png' : '/marca/mascota-presentando.png';
   const abierto = estadoPlazo() === 'abierto';
-  $('res-enviado').textContent = todos ? `Gracias por participar en la Feria de la Salud. Enviaste tu último tema el ${fmt(datos.enviado_en)}.`
-    : abierto ? `Tu aprobación se calcula con los temas que ya enviaste. Te ${datos.temas.length - r.temas === 1 ? 'falta 1 tema' : `faltan ${datos.temas.length - r.temas} temas`}; tienes hasta el ${fmt(datos.cierre)}.`
+  $('res-titulo').textContent = r.porcentaje >= 80 ? `¡Gran recorrido, ${primerNombre()}!` : `Tu recorrido, ${primerNombre()}`;
+  $('res-detalle').textContent = todos ? `Acertaste ${r.correctas} de ${r.total} preguntas en las ${r.temas} ciudades.`
+    : `Acertaste ${r.correctas} de ${r.total} preguntas en ${r.temas} de ${datos.temas.length} ciudades.`;
+  $('res-enviado').textContent = todos ? `Completaste tu pasaporte el ${fmt(datos.enviado_en)}. Gracias por participar en la Feria de la Salud.`
+    : abierto ? `Tu aprobación se calcula con las ciudades que ya enviaste. Te ${datos.temas.length - r.temas === 1 ? 'falta 1 ciudad' : `faltan ${datos.temas.length - r.temas} ciudades`} y tienes plazo hasta el ${fmt(datos.cierre)}`
     : 'Gracias por participar en la Feria de la Salud. Tu aprobación se calculó con los temas que enviaste antes del cierre.';
   $('b-res-volver').classList.toggle('hidden', todos);
+  $('res-dial').setAttribute('aria-label', `${r.porcentaje}% de aprobación`);
   const cont = $('res-temas');
   cont.innerHTML = '';
-  for (const t of datos.temas) if (t.resultado) cont.appendChild(cajaTema(t.resultado));
+  datos.temas.forEach((t, i) => { if (t.resultado) cont.appendChild(cajaTema(t, i, cont.children.length)); });
   document.title = 'Tu resultado · Feria de la Salud';
   vista('v-resultado');
+  const arco = $('res-arco');
+  arco.style.strokeDashoffset = 540.35;
+  $('res-pct').textContent = '0%';
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    arco.style.strokeDashoffset = (540.35 * (1 - r.porcentaje / 100)).toFixed(1);
+    contar($('res-pct'), r.porcentaje, '%', 1400);
+  }));
+  if (r.porcentaje >= 80) { zg.decir(`¡${r.porcentaje}%! Estoy muy orgulloso de ti, ${primerNombre()}.`, 'celebrando'); if (todos) confeti(); }
+  else if (r.porcentaje >= 60) zg.decir('¡Buen trabajo! Repasa abajo las respuestas correctas.', 'ok');
+  else zg.decir('Gracias por participar. Abajo te dejo las respuestas correctas para repasar.', 'presentando');
 }
 
-function cajaTema(t) {
-  {
-    const d = document.createElement('div');
-    const perfecto = t.falladas.length === 0;
-    d.className = 'res-tema' + (perfecto ? ' perfecto' : '');
-    const cab = document.createElement('div');
-    cab.className = 'res-cab';
-    cab.innerHTML = `<span><span class="res-ciudad"></span><span class="res-nombre"></span></span><span class="res-marca">${perfecto ? '✓ ' : ''}${t.correctas} de ${t.total}</span>`;
-    cab.querySelector('.res-nombre').textContent = t.nombre;
-    cab.querySelector('.res-ciudad').textContent = t.ciudad;
-    d.appendChild(cab);
-    if (!perfecto) {
-      const ul = document.createElement('ul');
-      for (const f of t.falladas) {
-        const li = document.createElement('li');
-        const q = document.createElement('p'); q.className = 'res-preg'; q.textContent = f.enunciado;
-        const tu = document.createElement('p'); tu.className = 'res-tuya'; tu.textContent = 'Tu respuesta: ' + (f.tu_respuesta ?? 'sin responder');
-        const ok = document.createElement('p'); ok.className = 'res-ok'; ok.textContent = 'Respuesta correcta: ' + f.correcta;
-        li.append(q, tu, ok); ul.appendChild(li);
-      }
-      d.appendChild(ul);
+function cajaTema(t, i, orden) {
+  const r = t.resultado;
+  const d = document.createElement('div');
+  const perfecto = r.falladas.length === 0;
+  d.className = 'res-c' + (perfecto ? ' perfecto' : '');
+  d.style.setProperty('--i', orden);
+  d.style.setProperty('--ink', TINTAS[i % TINTAS.length]);
+  d.style.setProperty('--giro', giroDe(t.id) + 'deg');
+  d.innerHTML = `<div class="cab">${selloDeTema(t, i)}<div><div class="ciudad">${esc(t.ciudad)}</div><div class="tema">${esc(t.nombre)}</div></div>
+    <div class="marca">${perfecto ? '✓ ' : ''}${r.correctas} de ${r.total}</div></div>`;
+  if (!perfecto) {
+    const ul = document.createElement('ul');
+    for (const f of r.falladas) {
+      const li = document.createElement('li');
+      li.innerHTML = `<div class="q"></div><div class="t"></div><div class="ok"></div>`;
+      li.querySelector('.q').textContent = f.enunciado;
+      li.querySelector('.t').textContent = 'Tu respuesta: ' + (f.tu_respuesta ?? 'sin responder');
+      li.querySelector('.ok').textContent = 'Correcta: ' + f.correcta;
+      ul.appendChild(li);
     }
-    return d;
+    d.appendChild(ul);
   }
+  return d;
 }
 
+// ------------------------------------------------ Confeti (colores de la marca)
+function confeti() {
+  if (QUIETO) return;
+  const cv = $('confeti'), ctx = cv.getContext('2d');
+  const dpr = Math.min(2, devicePixelRatio || 1);
+  cv.width = innerWidth * dpr; cv.height = innerHeight * dpr; ctx.scale(dpr, dpr);
+  const colores = ['#1f4fa0', '#f3a6b4', '#ffffff', '#6e9be0', '#b8336a'];
+  const ps = Array.from({ length: 140 }, () => ({
+    x: innerWidth / 2 + (Math.random() - .5) * 120, y: innerHeight * .35, vx: (Math.random() - .5) * 14, vy: -Math.random() * 14 - 4,
+    w: 6 + Math.random() * 6, h: 3 + Math.random() * 4, g: Math.random() * 6.28, vg: (Math.random() - .5) * .4, c: colores[Math.random() * colores.length | 0],
+  }));
+  const t0 = performance.now();
+  const cuadro = (t) => {
+    ctx.clearRect(0, 0, innerWidth, innerHeight);
+    for (const p of ps) {
+      p.vy += .38; p.vx *= .99; p.x += p.vx; p.y += p.vy; p.g += p.vg;
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.g); ctx.scale(1, Math.cos(p.g * 2));
+      ctx.fillStyle = p.c; ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); ctx.restore();
+    }
+    if (t - t0 < 2600) requestAnimationFrame(cuadro); else ctx.clearRect(0, 0, innerWidth, innerHeight);
+  };
+  requestAnimationFrame(cuadro);
+}
+
+// ------------------------------------------------ Enviar un tema
 $('b-enviar').onclick = () => { $('dlg-enviar').returnValue = ''; $('dlg-enviar').showModal(); };
 $('dlg-enviar').onclose = async () => {
   if ($('dlg-enviar').returnValue !== 'si') return;
-  const b = $('b-enviar'); b.disabled = true; b.textContent = 'Enviando…';
+  const b = $('b-enviar'); b.disabled = true; b.textContent = 'Estampando…';
   $('env-err').classList.add('hidden');
   try {
     if (Object.keys(pendientes).length) await vaciarPendientes();
@@ -468,19 +681,33 @@ $('dlg-enviar').onclose = async () => {
     const t = datos.temas[temaActual];
     const r = await api('/api/enviar-tema', { tema_id: t.id });
     t.resultado = r.tema; t.enviado_en = new Date().toISOString();
+    recienSellado = t.id;
     if (r.completo) { datos.enviado_en = new Date().toISOString(); return pintarResultado(); }
     abrirTema(temaActual);
-    $('tema-res').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    pintarEnvioTema(true);
+    const ciudad = t.ciudad || t.nombre, pct = r.tema.total ? r.tema.correctas / r.tema.total : 0;
+    if (pct === 1) { zg.decir(`¡Perfecto en ${ciudad}! Sello ganado sin errores.`, 'celebrando'); confeti(); }
+    else if (pct >= .5) zg.decir(`¡Bien! Ganaste el sello de ${ciudad}. Mira en verde lo que fallaste.`, 'ok');
+    else zg.decir(`Sello de ${ciudad} ganado. Repasa en verde las respuestas correctas, te van a servir.`, 'presentando');
+    setTimeout(() => $('tema-res').scrollIntoView({ behavior: QUIETO ? 'auto' : 'smooth', block: 'center' }), 120);
   } catch (e) {
     if (e.status === 401) return sesionVencida();
     $('env-err').textContent = e.message; $('env-err').classList.remove('hidden');
-  } finally { b.disabled = false; b.textContent = 'Enviar este tema'; }
+  } finally { b.disabled = false; b.textContent = 'Enviar y ganar el sello'; }
 };
 $('b-ver-res').onclick = pintarResultado;
-$('b-res-volver').onclick = () => { document.title = 'Feria de la Salud · Medical'; pintarTemas(); vista('v-temas'); };
+$('b-res-volver').onclick = () => irAlPasaporte();
+
+function irAlPasaporte() {
+  document.title = 'Feria de la Salud · Medical';
+  pintarTemas();
+  vista('v-temas');
+  if (recienSellado === null) saludoZero();
+  else zg.decir('¡Sello estampado en tu pasaporte!', 'ok', 4000);
+}
 
 async function cargar() {
-  if (!token) return vista('v-login');
+  if (!token) return mostrarIngreso();
   vista('cargando');
   try {
     const t0 = Date.now();
@@ -491,45 +718,60 @@ async function cargar() {
     if (Object.keys(pendientes).length) vaciarPendientes().then(() => Object.keys(pendientes).length && programarReintento());
     const ac = acumulado();
     if (ac.temas && (ac.temas === datos.temas.length || estadoPlazo() === 'cerrado')) { pendientes = {}; guardarPend(); return pintarResultado(); }
-    document.title = 'Feria de la Salud · Medical';
-    pintarTemas();
-    vista('v-temas');
+    irAlPasaporte();
   } catch (e) {
     if (e.status === 401) return sesionVencida();
-    $('cargando').textContent = 'No pudimos cargar el cuestionario. Revisa tu conexión y recarga la página.';
+    $('cargando').textContent = 'No pudimos abrir tu pasaporte. Revisa tu conexión y recarga la página.';
   }
 }
+
+// ------------------------------------------------ Ingreso
+function mostrarIngreso() {
+  $('libro').classList.remove('abriendo');
+  vista('v-login');
+  setTimeout(() => zl.decir('¡Hola! Soy ZERO. ¿Listo para recorrer Colombia?', 'presentando', 0), QUIETO ? 0 : 700);
+}
+let saludado = '';
+$('nom').addEventListener('input', () => {
+  const partes = $('nom').value.trim().split(/\s+/).filter((x) => x.length > 1);
+  const nombre = partes[0] ? partes[0][0].toUpperCase() + partes[0].slice(1).toLowerCase() : '';
+  if (partes.length >= 2 && nombre !== saludado) { saludado = nombre; zl.decir(`¡Mucho gusto, ${nombre}! Ahora tu número de documento.`, 'ok', 0); }
+});
+$('doc').addEventListener('focus', () => zl.decir('Con tu documento guardo tu avance. Si vuelves otro día, sigues donde quedaste.', 'presentando', 0));
 
 $('f-login').onsubmit = async (ev) => {
   ev.preventDefault();
   const doc = $('doc').value.trim(), nom = $('nom').value.trim().replace(/\s+/g, ' ');
-  if (nom.split(' ').filter((x) => x.length > 1).length < 2) { errorLogin('Escribe tu nombre completo (nombre y apellido).'); $('nom').focus(); return; }
-  if (!doc) { errorLogin('Escribe tu número de documento.'); $('doc').focus(); return; }
-  const b = $('b-login'); b.disabled = true; b.textContent = 'Entrando…';
+  if (nom.split(' ').filter((x) => x.length > 1).length < 2) { errorLogin('Escribe tu nombre completo (nombre y apellido).'); zl.decir('Necesito tu nombre y tu apellido.', 'brazos', 0); $('nom').focus(); return; }
+  if (!doc) { errorLogin('Escribe tu número de documento.'); zl.decir('Me falta tu número de documento.', 'brazos', 0); $('doc').focus(); return; }
+  const b = $('b-login'); b.disabled = true; b.textContent = 'Abriendo…';
   errorLogin('');
   try {
     const r = await api('/api/ingresar', { documento: doc, nombre: nom });
     if (ls.get('fs_dueno') !== doc) { pendientes = {}; ls.del(LS_PEND); } // pendientes de otra persona en este equipo
     ls.set('fs_dueno', doc);
     token = r.token; ls.set(LS_TOKEN, token);
-    $('doc').value = ''; $('nom').value = '';
+    zl.decir(`¡Bienvenido, ${r.nombre.split(' ')[0]}! Vamos.`, 'celebrando', 0);
+    if (!QUIETO) { $('libro').classList.add('abriendo'); await pausa(520); }
+    $('doc').value = ''; $('nom').value = ''; saludado = '';
     await cargar();
   } catch (e) {
-    errorLogin(e.message); $(e.codigo === 'NOMBRE' ? 'nom' : 'doc').focus();
-  } finally { b.disabled = false; b.textContent = 'Entrar'; }
+    errorLogin(e.message); zl.decir('Mmm, revisa ese dato.', 'brazos', 0);
+    $(e.codigo === 'NOMBRE' ? 'nom' : 'doc').focus();
+  } finally { b.disabled = false; b.textContent = 'Abrir mi pasaporte'; }
 };
 $('b-salir2').onclick = () => $('b-salir').onclick();
 $('b-salir').onclick = async () => {
   if (Object.keys(pendientes).length) await vaciarPendientes();
   try { await api('/api/salir', {}); } catch {}
   token = null; ls.del(LS_TOKEN); datos = null;
-  vista('v-login');
+  mostrarIngreso();
 };
-$('b-volver').onclick = () => { document.title = 'Feria de la Salud · Medical'; pintarTemas(); vista('v-temas'); };
+$('b-volver').onclick = () => irAlPasaporte();
 $('b-ant').onclick = () => temaActual > 0 && abrirTema(temaActual - 1);
 $('b-sig').onclick = () => {
   if (temaActual < datos.temas.length - 1) abrirTema(temaActual + 1);
-  else { document.title = 'Feria de la Salud · Medical'; pintarTemas(); vista('v-temas'); }
+  else irAlPasaporte();
 };
 
 cargar();

@@ -29,7 +29,7 @@
   <div class="escena">
     <section class="lado">
       <span class="logo-chip"><img src="/marca/logo.png" alt="Medical"></span>
-      <h1>Diez ciudades.<br>Un <em>pasaporte</em>.</h1>
+      <h1>Diez ciudades.<br>Un <em>ticket</em>.</h1>
       <p>La Feria de la Salud recorre Colombia. Responde cada tema, envíalo y gana el sello de su ciudad.</p>
       <div class="ciudades-cinta" aria-hidden="true">
         <span>Bogotá</span><span>Armenia</span><span>Leticia</span><span>Cali</span><span>Bucaramanga</span><span>Cartagena</span><span>Ipiales</span><span>Barranquilla</span><span>Medellín</span><span>Villavicencio</span>
@@ -42,9 +42,9 @@
           <div class="respira"><img id="zl-img" src="/marca/mascota-presentando.png" alt=""></div>
         </button>
       </div>
-      <div class="encabezado"><b>Pasaporte</b><span>Feria de la Salud</span></div>
+      <div class="encabezado"><b>Ticket</b><span>Feria de la Salud</span></div>
       <h2 id="libro-titulo">Datos del viajero</h2>
-      <p class="bajada" id="libro-bajada">Completa tus datos para abrir tu pasaporte. Si ya empezaste, sigues donde quedaste.</p>
+      <p class="bajada" id="libro-bajada">Completa tus datos para abrir tu ticket. Si ya empezaste, sigues donde quedaste.</p>
       <form id="f-datos" novalidate>
         <div>
           <label class="campo" for="d-doc">Número de identificación</label>
@@ -77,8 +77,8 @@
           <label class="check" for="d-autorizo"><input type="checkbox" id="d-autorizo"><span>Leí el aviso y autorizo a Clínica Medical S.A.S. a tratar mis datos personales con esas finalidades, conforme a la Ley 1581 de 2012 y su <a href="https://clinicamedical.dataprotected.co/" target="_blank" rel="noopener">Política de Tratamiento de Datos Personales</a>.</span></label>
         </fieldset>
         <div id="datos-err" class="nota error hidden" role="alert"></div>
-        <button class="btn full" id="b-datos" type="submit">Guardar y abrir mi pasaporte</button>
-        <button class="btn sec full hidden" id="b-datos-volver" type="button">Volver a mi pasaporte sin cambios</button>
+        <button class="btn full" id="b-datos" type="submit">Guardar y abrir mi ticket</button>
+        <button class="btn sec full hidden" id="b-datos-volver" type="button">Volver a mi ticket sin cambios</button>
       </form>
     </div>
   </div>
@@ -96,13 +96,13 @@
       </div>
       <div class="titular">
         <div>
-          <div class="eyebrow">Pasaporte de</div>
+          <div class="eyebrow">Ticket de</div>
           <h1 id="saludo"></h1>
           <p class="plazo-l" id="plazo-txt"></p>
         </div>
         <div class="marcador" aria-live="polite">
           <div class="cifra"><span id="n-sellos">0</span><small id="n-total">/10</small></div>
-          <div class="que">sellos en tu<br>pasaporte</div>
+          <div class="que">sellos en tu<br>ticket</div>
           <div class="cuentas" id="cuentas" aria-hidden="true"></div>
         </div>
       </div>
@@ -134,7 +134,7 @@
       <div>
         <button class="btn claro chico" id="b-volver" type="button">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
-          Mi pasaporte
+          Mi ticket
         </button>
         <div class="de" id="tema-num"></div>
         <h1 id="tema-nombre"></h1>
@@ -188,7 +188,7 @@
           <h1 id="res-titulo"></h1>
           <p class="sub" id="res-detalle"></p>
           <p class="sub" id="res-enviado"></p>
-          <button class="btn claro" id="b-res-volver" type="button" style="margin-top:18px">Volver a mi pasaporte</button>
+          <button class="btn claro" id="b-res-volver" type="button" style="margin-top:18px">Volver a mi ticket</button>
         </div>
       </div>
     </div>
@@ -222,7 +222,7 @@
 </dialog>
 
 <canvas id="confeti" aria-hidden="true"></canvas>
-<div id="cargando" class="vacio" style="margin-top:30vh;color:#e3ecfb" role="status">Abriendo tu pasaporte…</div>
+<div id="cargando" class="vacio" style="margin-top:30vh;color:#e3ecfb" role="status">Abriendo tu ticket…</div>
 <div id="red" class="toast hidden" role="status" aria-live="polite"></div>
 
 <script>
@@ -235,7 +235,7 @@ const ls = {
 let token = ls.get(LS_TOKEN);
 let datos = null;      // respuesta de /api/cuestionario
 let temaActual = 0;
-let recienSellado = null;   // tema que se acaba de enviar: su sello se estampa al volver al pasaporte
+let recienSellado = null;   // tema que se acaba de enviar: su sello se estampa al volver al ticket
 let pendientes = {};   // pregunta_id -> opción, aún sin confirmar por el servidor
 try { pendientes = JSON.parse(ls.get(LS_PEND) || '{}') || {}; } catch { pendientes = {}; }
 
@@ -328,13 +328,13 @@ function consejos() {
     'Cada respuesta se guarda sola, incluso si se cae el internet.',
     'Puedes enviar los temas en el orden que quieras.',
     'Al enviar un tema te muestro la respuesta correcta de lo que fallaste.',
-    'Cada tema rinde homenaje a una ciudad de Colombia. ¡Llena tu pasaporte!',
+    'Cada tema rinde homenaje a una ciudad de Colombia. ¡Llena tu ticket!',
   ];
   if (datos) lista.push(`Tienes hasta el ${fmt(datos.cierre)}.`);
   return lista[consejo++ % lista.length];
 }
 $('zg').onclick = () => zg.decir(consejos(), null, 6000);
-$('zl').onclick = () => zl.decir(modoDatos ? 'Tus datos se quedan en Medical. Puedes corregirlos cuando quieras.' : '¡Hola! Soy ZERO. Escribe tu número de identificación para abrir tu pasaporte.', 'presentando', 6000);
+$('zl').onclick = () => zl.decir(modoDatos ? 'Tus datos se quedan en Medical. Puedes corregirlos cuando quieras.' : '¡Hola! Soy ZERO. Escribe tu número de identificación para abrir tu ticket.', 'presentando', 6000);
 
 // ------------------------------------------------ ZERO de cada ciudad
 const CIUDADES_ZERO = ['bogota', 'armenia', 'leticia', 'cali', 'bucaramanga', 'cartagena', 'ipiales', 'barranquilla', 'medellin', 'villavicencio'];
@@ -516,7 +516,7 @@ function abrirTema(i) {
   pintarPuntos();
   pintarEnvioTema();
   $('b-ant').disabled = i === 0;
-  $('b-sig').textContent = i === datos.temas.length - 1 ? 'Ver mi pasaporte' : 'Siguiente ciudad';
+  $('b-sig').textContent = i === datos.temas.length - 1 ? 'Ver mi ticket' : 'Siguiente ciudad';
   vista('v-tema');
   const traje = zeroDe(t) || 'portatil';
   if (t.resultado) zg.decir(`Ya tienes el sello de ${t.ciudad || t.nombre}. Te marqué en verde las respuestas correctas.`, traje, 5000);
@@ -631,7 +631,7 @@ function pintarResultado() {
   $('res-titulo').textContent = r.porcentaje >= 80 ? `¡Gran recorrido, ${primerNombre()}!` : `Tu recorrido, ${primerNombre()}`;
   $('res-detalle').textContent = todos ? `Acertaste ${r.correctas} de ${r.total} preguntas en las ${r.temas} ciudades.`
     : `Acertaste ${r.correctas} de ${r.total} preguntas en ${r.temas} de ${datos.temas.length} ciudades.`;
-  $('res-enviado').textContent = todos ? `Completaste tu pasaporte el ${fmt(datos.enviado_en)}. Gracias por participar en la Feria de la Salud.`
+  $('res-enviado').textContent = todos ? `Completaste tu ticket el ${fmt(datos.enviado_en)}. Gracias por participar en la Feria de la Salud.`
     : abierto ? `Tu aprobación se calcula con las ciudades que ya enviaste. Te ${datos.temas.length - r.temas === 1 ? 'falta 1 ciudad' : `faltan ${datos.temas.length - r.temas} ciudades`} y tienes plazo hasta el ${fmt(datos.cierre)}`
     : 'Gracias por participar en la Feria de la Salud. Tu aprobación se calculó con los temas que enviaste antes del cierre.';
   $('b-res-volver').classList.toggle('hidden', todos);
@@ -736,7 +736,7 @@ function irAlPasaporte() {
   pintarTemas();
   vista('v-temas');
   if (recienSellado === null) saludoZero();
-  else zg.decir('¡Sello estampado en tu pasaporte!', 'ok', 4000);
+  else zg.decir('¡Sello estampado en tu ticket!', 'ok', 4000);
 }
 
 async function cargar() {
@@ -754,7 +754,7 @@ async function cargar() {
     irAlPasaporte();
   } catch (e) {
     if (e.status === 401) return sesionVencida();
-    $('cargando').textContent = 'No pudimos abrir tu pasaporte. Revisa tu conexión y recarga la página.';
+    $('cargando').textContent = 'No pudimos abrir tu ticket. Revisa tu conexión y recarga la página.';
   }
 }
 
@@ -792,10 +792,10 @@ function modo(m) {
   const act = m === 'actualizar';
   $('libro').classList.remove('abriendo');
   $('libro-titulo').textContent = act ? 'Mis datos' : 'Datos del viajero';
-  $('libro-bajada').textContent = act ? 'Revisa tus datos y corrige lo que haya cambiado.' : 'Completa tus datos para abrir tu pasaporte. Si ya empezaste, sigues donde quedaste.';
+  $('libro-bajada').textContent = act ? 'Revisa tus datos y corrige lo que haya cambiado.' : 'Completa tus datos para abrir tu ticket. Si ya empezaste, sigues donde quedaste.';
   $('d-doc').readOnly = act;
   $('d-doc-ayuda').textContent = act ? 'Tu número de identificación no se puede cambiar aquí.' : '¿Ya llenaste tus datos antes? Con tu número basta para entrar.';
-  $('b-datos').textContent = act ? 'Guardar mis datos' : 'Abrir mi pasaporte';
+  $('b-datos').textContent = act ? 'Guardar mis datos' : 'Abrir mi ticket';
   $('b-datos-volver').classList.toggle('hidden', !act);
 }
 
@@ -810,7 +810,7 @@ function mostrarIngreso() {
   llenarFormulario(null);
   vista('v-login');
   cargarOpciones();
-  setTimeout(() => zl.decir('¡Hola! Soy ZERO. Llena tu pasaporte y empezamos a recorrer Colombia.', 'presentando', 0), QUIETO ? 0 : 700);
+  setTimeout(() => zl.decir('¡Hola! Soy ZERO. Llena tu ticket y empezamos a recorrer Colombia.', 'presentando', 0), QUIETO ? 0 : 700);
 }
 $('d-doc').addEventListener('focus', () => modoDatos === 'ingreso' && zl.decir('Con tu número de identificación guardo tu avance. Si vuelves otro día, sigues donde quedaste.', 'presentando', 0));
 

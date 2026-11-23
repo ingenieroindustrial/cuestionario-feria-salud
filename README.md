@@ -65,7 +65,7 @@ El ingreso es una sola pantalla con número de identificación, nombres, apellid
 
 **Tabla de datos.** En D1 la vista `datos_colaboradores` reúne identificación, nombres, apellidos, celular, cumpleaños, cargo, servicio, sede y autorización (consola de D1: `SELECT * FROM datos_colaboradores;`). En el panel está en la pestaña **Datos actualizados**, con su propio Excel, y en Power BI como `datos_colaboradores`.
 
-**Pendiente de completar en `/privacidad.html`** (marcado en amarillo): correo y teléfono de contacto para datos personales. La política ya enlaza a https://clinicamedical.dataprotected.co/.
+Contacto para datos personales en `/privacidad.html`: protecciondedatos@clinicamedical.com.co · (601) 744 2565. La política enlaza a https://clinicamedical.dataprotected.co/.
 
 ## Datos en D1
 

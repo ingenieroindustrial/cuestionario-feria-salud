@@ -73,8 +73,8 @@
         </div>
         <fieldset class="privacidad">
           <legend>Tratamiento de tus datos personales</legend>
-          <p>Clínica Medical S.A.S. usará estos datos para actualizar la base de colaboradores, registrar tu participación en la feria, contactarte por asuntos institucionales y celebrar tu cumpleaños. No los vende ni los cede. Puedes conocerlos, corregirlos o pedir que se borren cuando quieras. <a href="/privacidad.html" target="_blank" rel="noopener">Lee el aviso de privacidad completo</a></p>
-          <label class="check" for="d-autorizo"><input type="checkbox" id="d-autorizo"><span>Leí el aviso y autorizo a Clínica Medical S.A.S. a tratar mis datos personales con esas finalidades, conforme a la Ley 1581 de 2012 y su <a href="https://clinicamedical.dataprotected.co/" target="_blank" rel="noopener">Política de Tratamiento de Datos Personales</a>.</span></label>
+          <p>Clínica Medical S.A.S. usará tus datos para actualizar la base de colaboradores, registrar tu participación en la feria y contactarte por asuntos institucionales. No los vende ni los cede, y puedes corregirlos o pedir que se borren cuando quieras.</p>
+          <label class="check" for="d-autorizo"><input type="checkbox" id="d-autorizo"><span>Autorizo a Clínica Medical S.A.S. a tratar mis datos personales con esas finalidades, conforme a la Ley 1581 de 2012 y su <a href="https://clinicamedical.dataprotected.co/" target="_blank" rel="noopener">Política de Tratamiento de Datos Personales</a>.</span></label>
         </fieldset>
         <div id="datos-err" class="nota error hidden" role="alert"></div>
         <button class="btn full" id="b-datos" type="submit">Guardar y abrir mi ticket</button>
@@ -838,7 +838,7 @@ function revisarDatos(d) {
   if (d.cargo.trim().length < 2) return ['d-cargo', 'Escribe tu cargo.'];
   if (d.servicio.trim().length < 2) return ['d-servicio', 'Escribe el servicio en el que trabajas.'];
   if (d.sede.trim().length < 2) return ['d-sede', 'Escribe tu sede.'];
-  if (!$('d-autorizo').checked) return ['d-autorizo', 'Para guardar tus datos necesitamos tu autorización. Lee el aviso y marca la casilla.'];
+  if (!$('d-autorizo').checked) return ['d-autorizo', 'Para guardar tus datos necesitamos tu autorización. Marca la casilla para continuar.'];
   return null;
 }
 const CAMPO_ERR = { nombres: 'd-nombres', apellidos: 'd-apellidos', celular: 'd-celular', cargo: 'd-cargo', servicio: 'd-servicio', sede: 'd-sede', cumple: 'd-dia', documento: 'd-doc' };
